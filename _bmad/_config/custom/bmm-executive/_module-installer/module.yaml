@@ -1,0 +1,165 @@
+# BMM-Executive Module Installer Configuration
+# Complete 10-agent executive suite for enterprise projects
+
+name: bmm-executive
+display_name: 'BMM Executive Suite'
+description: 'Complete 10-agent executive architecture with Strategist Marketer (Sage), Technologist Architect (Theo), Fulfillization Manager (Finn), Security Guardian (Cerberus), Financial Strategist (Stermark), Operations Commander (Axel), Apex (Peak Performance), Zen (Clean Architecture), Echon (Post-Launch Lifecycle), and Marketing Outreach (Ajwash)'
+version: '1.0.0'
+author: 'BMad'
+
+# Module metadata
+tags:
+  - methodology
+  - product-development
+  - agile
+  - executive-suite
+  - enterprise
+
+# Dependencies
+requires:
+  - core # BMAD Core is required
+
+# Conflicts (can't use both simultaneously per project)
+conflicts_per_project:
+  - bmm # User should choose one methodology per project
+
+# Installation configuration
+install:
+  # Copy these directories
+  directories:
+    - agents
+    - workflows
+    - teams
+    - data
+
+  # Generate config.yaml with these questions
+  config_questions:
+    - field: project_name
+      prompt: 'What is your project name?'
+      type: string
+      required: true
+
+    - field: user_name
+      prompt: 'What is your name?'
+      type: string
+      required: true
+
+    - field: communication_language
+      prompt: 'Preferred communication language?'
+      type: string
+      default: 'English'
+
+    - field: document_output_language
+      prompt: 'Preferred document output language?'
+      type: string
+      default: 'English'
+
+    - field: user_skill_level
+      prompt: 'Your skill level?'
+      type: choice
+      options:
+        - beginner
+        - intermediate
+        - advanced
+      default: intermediate
+
+    - field: planning_artifacts
+      prompt: 'Where should planning artifacts be saved?'
+      type: path
+      default: '{project-root}/_bmad-output/planning-artifacts'
+
+    - field: implementation_artifacts
+      prompt: 'Where should implementation artifacts be saved?'
+      type: path
+      default: '{project-root}/_bmad-output/implementation-artifacts'
+
+  # Register slash commands for the agents
+  slash_commands:
+    # Original Triad Agents
+    - name: 'bmad:bmm-executive:agents:strategist-marketer'
+      description: 'Sage - Product Strategist + Market Intelligence Expert'
+      agent: 'agents/strategist-marketer.md'
+
+    - name: 'bmad:bmm-executive:agents:technologist-architect'
+      description: 'Theo - Technical Architect + Implementation Specialist'
+      agent: 'agents/technologist-architect.md'
+
+    - name: 'bmad:bmm-executive:agents:fulfillization-manager'
+      description: 'Finn - Delivery + Experience + Operations Specialist'
+      agent: 'agents/fulfillization-manager.md'
+
+    # New Executive Agents
+    - name: 'bmad:bmm-executive:agents:security-guardian'
+      description: 'Cerberus - Security Architect + Risk Guardian'
+      agent: 'agents/security-guardian.md'
+
+    - name: 'bmad:bmm-executive:agents:echon'
+      description: 'Echon - Post-Launch Lifecycle Architect + Product Vitality Commander'
+      agent: 'agents/echon.md'
+
+    - name: 'bmad:bmm-executive:agents:marketing-outreach'
+      description: 'Ajwash - Marketing Campaign & Outreach Specialist'
+      agent: 'agents/marketing-outreach.md'
+
+    - name: 'bmad:bmm-executive:agents:financial-strategist'
+      description: 'Stermark - Financial Strategist + Resource Allocator'
+      agent: 'agents/financial-strategist.md'
+
+    - name: 'bmad:bmm-executive:agents:operations-commander'
+      description: 'Axel - Operations Commander + Process Optimizer'
+      agent: 'agents/operations-commander.md'
+
+    # Master Developer Agents
+    - name: 'bmad:bmm-executive:agents:apex'
+      description: 'Apex - Peak Performance Full-Stack Engineer'
+      agent: 'agents/apex.md'
+
+    - name: 'bmad:bmm-executive:agents:zen'
+      description: 'Zen - Clean Architecture Full-Stack Engineer'
+      agent: 'agents/zen.md'
+
+  # Register workflow commands
+  workflow_commands:
+    - name: 'bmad:bmm-executive:workflows:triad-discovery'
+      description: 'Run the Triad Discovery workflow - Strategy to Requirements'
+      workflow: 'workflows/triad-discovery/workflow.md'
+
+    - name: 'bmad:bmm-executive:workflows:triad-build'
+      description: 'Run the Triad Build workflow - Architecture to Implementation'
+      workflow: 'workflows/triad-build/workflow.md'
+
+    - name: 'bmad:bmm-executive:workflows:triad-ship'
+      description: 'Run the Triad Ship workflow - Testing to Delivery to Docs'
+      workflow: 'workflows/triad-ship/workflow.md'
+
+    - name: 'bmad:bmm-executive:workflows:triad-full-cycle'
+      description: 'Run the Triad Full Cycle workflow - End-to-end orchestration'
+      workflow: 'workflows/triad-full-cycle/workflow.md'
+
+# Post-install message
+post_install_message: |
+  🏛️ BMM-Executive Suite installed successfully!
+
+  Your 10-agent executive team is ready:
+
+  **Original Triad:**
+    📊 Sage (Strategist Marketer) - Business WHY & WHO (CMO/CPO)
+    🔧 Theo (Technologist Architect) - Technical HOW (CTO)
+    🎯 Finn (Fulfillization Manager) - SHIP & EXPERIENCE (Delivery Lead)
+
+  **New Executive Additions:**
+    🛡️ Cerberus (Security Guardian) - Security & Risk (CISO)
+    💰 Stermark (Financial Strategist) - Financial Strategy (CFO)
+    ⚙️ Axel (Operations Commander) - Operations & Process (COO)
+    📡 Echon (Post-Launch Lifecycle) - Product Vitality & Lifecycle (PLM)
+    🌸 Ajwash (Marketing Outreach) - Marketing Campaign & Outreach (CMO)
+
+  **Master Developer Additions:**
+    ⚡ Apex (Peak Performance) - Full-Stack Performance & Delivery Acceleration
+    🧘 Zen (Clean Architecture) - Full-Stack Maintainability & Quality Craftsmanship
+
+  Quick Start:
+    /bmad:bmm-executive:agents:strategist-marketer  - Start with strategy
+    /bmad:bmm-executive:workflows:triad-full-cycle  - Run complete cycle
+
+  Need the full 16-agent BMM? Install bmm module alongside.

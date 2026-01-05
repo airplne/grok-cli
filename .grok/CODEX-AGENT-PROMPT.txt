@@ -1,0 +1,101 @@
+You are implementing improvements to grok-cli, an AI-powered CLI built with TypeScript and React/Ink.
+
+## CRITICAL FIRST TASK: Fix Permission System Bug
+
+Users must press Y for EVERY Bash command (even `ls`, `git status`). This severely hurts usability.
+
+### Root Cause
+1. `src/security/permission-manager.ts:8` - Bash excluded from AUTO_APPROVED_TOOLS
+2. `src/tools/bash.ts:9` - requiresConfirmation = true (hardcoded)
+3. `src/ui/app.tsx:63` - rememberedTools only stores tool name, not command
+
+### Implementation Steps
+
+**Step 1: Create `src/security/safe-commands.ts`**
+
+Create a new file with patterns for read-only commands that should auto-approve:
+- File inspection: ls, pwd, cat, head, tail, stat, file, wc
+- Search: find, tree, grep, rg, ag
+- Git read-only: git status, git log, git diff, git branch, git show
+- NPM read-only: npm list, npm ls, npm view, npm outdated
+
+Export `isSafeBashCommand(command: string): boolean` that:
+1. First checks for DANGEROUS patterns (rm, sudo, chmod, shell redirects)
+2. Then checks if command matches safe patterns
+3. Returns true only if safe AND not dangerous
+
+**Step 2: Update `src/security/permission-manager.ts`**
+
+Import isSafeBashCommand and modify requiresConfirmation():
+- Add second parameter: args?: Record<string, unknown>
+- If toolName === 'Bash' && args?.command, check if isSafeBashCommand
+- Return false (no confirmation) for safe bash commands
+
+**Step 3: Create `src/security/permission-store.ts`**
+
+Implement persistent storage for approved commands:
+- Store in `.grok-cli-permissions.json` (project-local)
+- Track: approvedCommands (exact), approvedPatterns (glob-like)
+- Functions: loadPermissions(), savePermissions(), isCommandApproved()
+
+**Step 4: Update `src/ui/app.tsx`**
+
+Replace simple `rememberedTools` Set with ApprovalMemory interface:
+- sessionTools: Set<string> (tool-level)
+- sessionCommands: Set<string> (exact commands)
+- sessionPatterns: string[] (patterns like "git *")
+- persistedPermissions: loaded from disk
+
+Update handleConfirmation to check all levels.
+
+**Step 5: Update `src/ui/components/confirm.tsx`**
+
+Add more approval options:
+- [y]es once - single approval
+- [a]lways this command - persist exact command
+- [t]rust similar - persist pattern (e.g., "npm run *")
+- [!] trust all bash - session only, approve all bash
+- [?] help - show explanation
+
+### Success Criteria
+
+After implementation:
+```bash
+# Auto-approve (no prompt):
+ls -la        # safe
+git status    # safe
+npm list      # safe
+cat file.txt  # safe
+
+# Still prompt:
+git push origin main  # modifies remote
+npm install lodash    # modifies node_modules
+rm -rf node_modules   # destructive
+```
+
+## Full PRP Location
+
+For complete implementation details, code examples, and all other improvements:
+`/home/aip0rt/.claude/plans/valiant-orbiting-fern.md`
+
+The PRP contains:
+- Part 1: Problem analysis with line numbers
+- Part 1.5: Complete production-ready code for all 5 steps
+- Part 2-10: Additional improvements (tools, commands, UI/UX)
+
+## Stack
+
+- TypeScript + React 18 + Ink 4.x
+- Zod for parameter validation
+- Build: `npm run build` → `dist/`
+- Verify: `npx tsc --noEmit`
+
+## Priority Order
+
+1. Fix permission system (this task)
+2. Add markdown rendering
+3. Add input history
+4. Add /compact command
+5. Add WebFetch/WebSearch tools
+
+Start with Step 1 - create src/security/safe-commands.ts

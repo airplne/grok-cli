@@ -31,3 +31,10 @@ coverage/
 
 # Generated TTS audio (keep background music tracks)
 .claude/audio/tts-*.wav
+
+# Codex credentials and sessions (SENSITIVE)
+.codex/
+
+# Grok-CLI session data
+.grok-cli-todos.json
+.grok-cli-permissions.json

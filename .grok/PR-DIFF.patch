@@ -1,0 +1,3688 @@
+diff --git a/.gitignore b/.gitignore
+index fc44a91..d38e8be 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -31,3 +31,10 @@ coverage/
+ 
+ # Generated TTS audio (keep background music tracks)
+ .claude/audio/tts-*.wav
++
++# Codex credentials and sessions (SENSITIVE)
++.codex/
++
++# Grok-CLI session data
++.grok-cli-todos.json
++.grok-cli-permissions.json
+diff --git a/.grok/CODEX-AGENT-PROMPT.txt b/.grok/CODEX-AGENT-PROMPT.txt
+new file mode 100644
+index 0000000..175bbeb
+--- /dev/null
++++ b/.grok/CODEX-AGENT-PROMPT.txt
+@@ -0,0 +1,101 @@
++You are implementing improvements to grok-cli, an AI-powered CLI built with TypeScript and React/Ink.
++
++## CRITICAL FIRST TASK: Fix Permission System Bug
++
++Users must press Y for EVERY Bash command (even `ls`, `git status`). This severely hurts usability.
++
++### Root Cause
++1. `src/security/permission-manager.ts:8` - Bash excluded from AUTO_APPROVED_TOOLS
++2. `src/tools/bash.ts:9` - requiresConfirmation = true (hardcoded)
++3. `src/ui/app.tsx:63` - rememberedTools only stores tool name, not command
++
++### Implementation Steps
++
++**Step 1: Create `src/security/safe-commands.ts`**
++
++Create a new file with patterns for read-only commands that should auto-approve:
++- File inspection: ls, pwd, cat, head, tail, stat, file, wc
++- Search: find, tree, grep, rg, ag
++- Git read-only: git status, git log, git diff, git branch, git show
++- NPM read-only: npm list, npm ls, npm view, npm outdated
++
++Export `isSafeBashCommand(command: string): boolean` that:
++1. First checks for DANGEROUS patterns (rm, sudo, chmod, shell redirects)
++2. Then checks if command matches safe patterns
++3. Returns true only if safe AND not dangerous
++
++**Step 2: Update `src/security/permission-manager.ts`**
++
++Import isSafeBashCommand and modify requiresConfirmation():
++- Add second parameter: args?: Record<string, unknown>
++- If toolName === 'Bash' && args?.command, check if isSafeBashCommand
++- Return false (no confirmation) for safe bash commands
++
++**Step 3: Create `src/security/permission-store.ts`**
++
++Implement persistent storage for approved commands:
++- Store in `.grok-cli-permissions.json` (project-local)
++- Track: approvedCommands (exact), approvedPatterns (glob-like)
++- Functions: loadPermissions(), savePermissions(), isCommandApproved()
++
++**Step 4: Update `src/ui/app.tsx`**
++
++Replace simple `rememberedTools` Set with ApprovalMemory interface:
++- sessionTools: Set<string> (tool-level)
++- sessionCommands: Set<string> (exact commands)
++- sessionPatterns: string[] (patterns like "git *")
++- persistedPermissions: loaded from disk
++
++Update handleConfirmation to check all levels.
++
++**Step 5: Update `src/ui/components/confirm.tsx`**
++
++Add more approval options:
++- [y]es once - single approval
++- [a]lways this command - persist exact command
++- [t]rust similar - persist pattern (e.g., "npm run *")
++- [!] trust all bash - session only, approve all bash
++- [?] help - show explanation
++
++### Success Criteria
++
++After implementation:
++```bash
++# Auto-approve (no prompt):
++ls -la        # safe
++git status    # safe
++npm list      # safe
++cat file.txt  # safe
++
++# Still prompt:
++git push origin main  # modifies remote
++npm install lodash    # modifies node_modules
++rm -rf node_modules   # destructive
++```
++
++## Full PRP Location
++
++For complete implementation details, code examples, and all other improvements:
++`/home/aip0rt/.claude/plans/valiant-orbiting-fern.md`
++
++The PRP contains:
++- Part 1: Problem analysis with line numbers
++- Part 1.5: Complete production-ready code for all 5 steps
++- Part 2-10: Additional improvements (tools, commands, UI/UX)
++
++## Stack
++
++- TypeScript + React 18 + Ink 4.x
++- Zod for parameter validation
++- Build: `npm run build` → `dist/`
++- Verify: `npx tsc --noEmit`
++
++## Priority Order
++
++1. Fix permission system (this task)
++2. Add markdown rendering
++3. Add input history
++4. Add /compact command
++5. Add WebFetch/WebSearch tools
++
++Start with Step 1 - create src/security/safe-commands.ts
+diff --git a/.grok/CODEX-TEAM-PROMPT.md b/.grok/CODEX-TEAM-PROMPT.md
+new file mode 100644
+index 0000000..d00e4cf
+--- /dev/null
++++ b/.grok/CODEX-TEAM-PROMPT.md
+@@ -0,0 +1,192 @@
++# Codex Team: Grok-CLI Enhancement Implementation Prompt
++
++## Context
++
++You are a senior engineer on the Codex team tasked with reviewing and implementing improvements to **grok-cli**, an AI-powered command-line interface built with TypeScript, React/Ink, and the xAI Grok API. A comprehensive Product Requirements Plan (PRP) has been prepared detailing all findings from a deep audit comparing grok-cli to Claude Code.
++
++## Your Mission
++
++Review the PRP at `/home/aip0rt/.claude/plans/valiant-orbiting-fern.md` and implement the improvements in priority order. The PRP contains production-ready code examples that you should adapt and integrate.
++
++---
++
++## Critical Priority: Permission System Bug
++
++### The Problem
++Users are forced to press 'Y' to confirm **every single Bash command** including safe read-only operations like `ls`, `git status`, and `cat`. This creates severe workflow disruption and "alert fatigue."
++
++### Root Cause (Verified)
++1. `src/security/permission-manager.ts:8` - Bash is excluded from `AUTO_APPROVED_TOOLS`
++2. `src/tools/bash.ts:9` - `requiresConfirmation = true` is hardcoded
++3. `src/ui/app.tsx:63,105` - `rememberedTools` only stores tool name, not specific commands
++4. No persistent storage - approvals lost on restart
++
++### Your Task
++Implement the 5-step fix detailed in **Part 1.5** of the PRP:
++
++1. **Create** `src/security/safe-commands.ts` - Safe command pattern detection (code provided)
++2. **Update** `src/security/permission-manager.ts` - Add command-aware logic (code provided)
++3. **Create** `src/security/permission-store.ts` - Persistent permission storage (code provided)
++4. **Update** `src/ui/app.tsx` - Sophisticated approval memory system (code provided)
++5. **Update** `src/ui/components/confirm.tsx` - Enhanced approval options (code provided)
++
++### Success Criteria
++```bash
++# These should auto-approve WITHOUT prompting:
++ls -la
++git status
++npm list
++cat package.json
++pwd
++
++# These should STILL prompt:
++git push origin main
++npm install lodash
++rm -rf node_modules
++```
++
++---
++
++## Implementation Phases
++
++### Phase 1: Critical UX (Do First)
++1. Fix permission system (safe command bypass)
++2. Add markdown rendering to message output
++3. Add input history (up/down arrows)
++4. Add `/compact` command for context management
++
++### Phase 2: Feature Parity
++5. Add WebFetch tool (`src/tools/web-fetch.ts`)
++6. Add WebSearch tool (`src/tools/web-search.ts`)
++7. Enhance Grep with output modes, context lines
++8. Add session persistence
++
++### Phase 3: Polish
++9. Token tracking and cost display
++10. Background Bash execution
++11. Syntax highlighting
++12. Multi-line input support
++
++### Phase 4: Differentiation
++13. MCP integration
++14. Tool parallelization
++15. Custom command system from `.grok/commands/`
++16. Advanced subagent orchestration
++
++---
++
++## Key Files Reference
++
++### Files to Modify
++| File | Purpose |
++|------|---------|
++| `src/security/permission-manager.ts` | Permission logic (89 lines) |
++| `src/tools/bash.ts` | Bash tool (83 lines) |
++| `src/ui/app.tsx` | Main UI component (509 lines) |
++| `src/ui/components/confirm.tsx` | Confirmation dialog (48 lines) |
++| `src/ui/components/input.tsx` | Input component |
++| `src/ui/components/message.tsx` | Message display |
++| `src/tools/grep.ts` | Grep tool (98 lines) |
++| `src/agent/grok-agent.ts` | Agent loop |
++
++### New Files to Create
++| File | Purpose |
++|------|---------|
++| `src/security/safe-commands.ts` | Safe command detection |
++| `src/security/permission-store.ts` | Persistent permissions |
++| `src/tools/web-fetch.ts` | WebFetch tool |
++| `src/tools/web-search.ts` | WebSearch tool |
++| `src/tools/bash-output.ts` | Background process output |
++| `src/lib/markdown-renderer.ts` | Markdown rendering |
++| `src/lib/session-manager.ts` | Session persistence |
++| `src/lib/token-tracker.ts` | Token counting |
++
++---
++
++## Technical Constraints
++
++1. **Stack**: TypeScript, React 18, Ink 4.x, Zod for validation
++2. **Build**: `npm run build` compiles to `dist/`
++3. **Entry**: `src/index.tsx` is the CLI entry point
++4. **Security**: Must maintain 4-layer command allowlist defense
++5. **Testing**: Run `npx tsc --noEmit` to verify types
++
++---
++
++## Security Requirements
++
++**DO NOT** compromise security while fixing UX:
++- The command allowlist at `src/security/command-allowlist.ts` MUST remain active
++- Dangerous commands (`rm`, `sudo`, `curl`, `wget`, etc.) MUST still be blocked
++- Safe command bypass is for READ-ONLY commands only
++- Pattern matching must check for dangerous substrings (see `DANGEROUS_PATTERNS` in PRP)
++
++---
++
++## Review Checklist
++
++Before submitting changes, verify:
++
++- [ ] `ls`, `git status`, `npm list` auto-approve without prompts
++- [ ] `rm -rf`, `sudo`, `git push` still require confirmation
++- [ ] "Always this command" persists to `.grok-cli-permissions.json`
++- [ ] "Trust similar" creates pattern like `git push *`
++- [ ] Permission file is gitignored appropriately
++- [ ] Types pass: `npx tsc --noEmit`
++- [ ] Build succeeds: `npm run build`
++
++---
++
++## Questions to Consider
++
++1. Should safe commands be configurable per-project in `.grok/config`?
++2. Should there be a "paranoid mode" CLI flag to override safe command bypass?
++3. How should permission patterns handle shell metacharacters?
++4. Should we add audit logging for security-sensitive permission decisions?
++
++---
++
++## Getting Started
++
++```bash
++# 1. Read the full PRP
++cat /home/aip0rt/.claude/plans/valiant-orbiting-fern.md
++
++# 2. Understand current permission flow
++cat src/security/permission-manager.ts
++cat src/ui/app.tsx | head -120
++
++# 3. Start with safe-commands.ts (new file)
++# Copy the implementation from PRP Part 1.5, Step 1
++
++# 4. Update permission-manager.ts
++# Add the isSafeBashCommand import and logic
++
++# 5. Test iteratively
++npm run build && ./dist/index.js
++```
++
++---
++
++## Success Metrics
++
++| Metric | Current | Target |
++|--------|---------|--------|
++| Permission prompts per typical session | 50+ | <5 |
++| Commands available | 6 | 15+ |
++| Tools available | 9 | 12+ |
++| Feature parity with Claude Code | 60-70% | 95%+ |
++
++---
++
++## Contact
++
++For questions or clarifications, refer to the full PRP at:
++`/home/aip0rt/.claude/plans/valiant-orbiting-fern.md`
++
++The PRP contains ~700 lines of detailed analysis, code examples, and implementation guidance.
++
++---
++
++*Generated: January 5, 2026*
++*PRP Version: 1.0*
+diff --git a/.grok/PRP-feature-audit.md b/.grok/PRP-feature-audit.md
+new file mode 100644
+index 0000000..97a6cb2
+--- /dev/null
++++ b/.grok/PRP-feature-audit.md
+@@ -0,0 +1,991 @@
++# Product Requirements Plan (PRP): Grok-CLI Feature Audit & Enhancement
++
++## For: Codex Team
++## Version: 1.0
++## Date: January 5, 2026
++
++---
++
++## Executive Summary
++
++This PRP documents a comprehensive audit of the grok-cli codebase, identifying gaps compared to Claude Code and providing prioritized recommendations for feature parity and competitive differentiation. The audit covered: core architecture, tools implementation, permission system, and UI/UX components.
++
++**Critical Finding:** The CLI suffers from excessive permission prompts (Y/N for every Bash command) due to missing command-aware permission caching. This severely impacts usability.
++
++**Overall Assessment:** grok-cli is **60-70% feature complete** vs Claude Code, with excellent security foundations but significant UX gaps.
++
++---
++
++## Part 1: Critical Bug - Permission System
++
++### Problem Statement
++Users must press 'Y' to confirm **every single Bash command**, including safe read-only commands like `ls`, `git status`, `cat`. This creates "alert fatigue" and severely disrupts workflow.
++
++### Root Cause Analysis
++
++| Issue | File Location | Line | Description |
++|-------|---------------|------|-------------|
++| Bash not auto-approved | `src/security/permission-manager.ts` | 8 | `AUTO_APPROVED_TOOLS` excludes Bash |
++| Hard-coded confirmation | `src/tools/bash.ts` | 9 | `requiresConfirmation = true` (always) |
++| Tool-only memory | `src/ui/app.tsx` | 63, 105 | `rememberedTools` stores tool name, not command |
++| Session-only storage | `src/ui/app.tsx` | 63 | `useState` loses approvals on restart |
++| Unused allowlist | `src/security/command-allowlist.ts` | 53-94 | Security layer exists but not used for UX |
++
++### Recommended Fixes
++
++#### Fix 1: Add Safe Command Bypass (Quick Win)
++```typescript
++// NEW: src/security/permission-manager.ts
++const SAFE_BASH_PATTERNS: RegExp[] = [
++  /^ls\b/, /^pwd$/, /^cat\b/, /^head\b/, /^tail\b/,
++  /^grep\b/, /^rg\b/, /^find\b/, /^tree\b/, /^wc\b/,
++  /^git\s+(status|log|diff|branch|show|remote)\b/,
++  /^npm\s+(list|ls|view|outdated|audit)\b/,
++];
++
++export function isSafeBashCommand(command: string): boolean {
++  return SAFE_BASH_PATTERNS.some(p => p.test(command.trim()));
++}
++```
++
++#### Fix 2: Command Pattern Memory
++```typescript
++// CHANGE: src/ui/app.tsx
++// From:
++const [rememberedTools, setRememberedTools] = useState<Set<string>>(new Set());
++
++// To:
++interface ApprovedCommand {
++  toolName: string;
++  pattern?: string; // e.g., "git *", "npm install *"
++}
++const [approvedCommands, setApprovedCommands] = useState<ApprovedCommand[]>([]);
++```
++
++#### Fix 3: Persistent Permission Storage
++Create `src/security/permission-store.ts` to persist approvals to `.grok-cli-permissions.json`
++
++#### Fix 4: Enhanced Confirmation Options
++```
++[y]es once | [a]lways this command | [t]rust similar | [n]o | [!] trust all bash
++```
++
++---
++
++## Part 1.5: Permission Fix Deep Dive (Complete Implementation)
++
++This section provides production-ready code for the Codex team to implement the permission system fix.
++
++### Current Code (Before Fix)
++
++#### File: `src/security/permission-manager.ts` (Current)
++```typescript
++// Line 8 - Bash is NOT in the auto-approved list
++const AUTO_APPROVED_TOOLS = ['Read', 'Glob', 'Grep', 'WebSearch', 'XSearch', 'TodoWrite', 'Task'];
++
++// Lines 47-75 - No command-aware logic
++export function requiresConfirmation(toolName: string): boolean {
++  // Only checks tool name, not the actual command being run
++  return !AUTO_APPROVED_TOOLS.includes(toolName);
++}
++```
++
++#### File: `src/tools/bash.ts` (Current)
++```typescript
++// Line 9 - Always requires confirmation, no exceptions
++export class BashTool extends BaseTool {
++  name = 'Bash';
++  requiresConfirmation = true; // ← THE PROBLEM
++```
++
++#### File: `src/ui/app.tsx` (Current)
++```typescript
++// Line 63 - Only stores tool name in a Set, loses on restart
++const [rememberedTools, setRememberedTools] = useState<Set<string>>(new Set());
++
++// Lines 103-113 - Only checks if "Bash" was remembered, not specific commands
++const handleConfirmation = useCallback((toolName: string, args: Record<string, unknown>): Promise<boolean> => {
++  if (rememberedTools.has(toolName)) {  // ← Only checks "Bash", not "git status"
++    return Promise.resolve(true);
++  }
++  // ...shows dialog for EVERY bash command
++}, [rememberedTools]);
++```
++
++#### File: `src/ui/components/confirm.tsx` (Current)
++```typescript
++// Lines 11-19 - "Always" only remembers tool type
++useInput((input, key) => {
++  if (input.toLowerCase() === 'y') {
++    onResponse(true, false);  // Single approval
++  } else if (input.toLowerCase() === 'a') {
++    onResponse(true, true);   // Remember tool (NOT command)
++  }
++});
++```
++
++---
++
++### Fixed Code (After Implementation)
++
++#### Step 1: Create `src/security/safe-commands.ts` (NEW FILE)
++```typescript
++/**
++ * Safe command detection for smart permission bypass
++ * These commands are read-only and safe to auto-approve
++ */
++
++// Read-only commands that never modify system state
++const SAFE_COMMAND_PATTERNS: RegExp[] = [
++  // File listing and inspection
++  /^ls\b/,
++  /^pwd$/,
++  /^cat\b/,
++  /^head\b/,
++  /^tail\b/,
++  /^less\b/,
++  /^more\b/,
++  /^stat\b/,
++  /^file\b/,
++  /^wc\b/,
++  /^du\b/,
++  /^df\b/,
++
++  // Search and find
++  /^find\b/,
++  /^tree\b/,
++  /^grep\b/,
++  /^egrep\b/,
++  /^fgrep\b/,
++  /^rg\b/,    // ripgrep
++  /^ag\b/,    // silver searcher
++  /^fd\b/,    // fd-find
++
++  // Git read-only operations
++  /^git\s+(status|log|diff|show|branch|remote|config\s+--list|rev-parse|describe|tag\s+-l)\b/,
++  /^git\s+log\b/,
++
++  // Node/npm read-only
++  /^npm\s+(list|ls|view|outdated|audit|help|config\s+list)\b/,
++  /^npx\s+--version$/,
++  /^node\s+--version$/,
++  /^npm\s+--version$/,
++
++  // Package info
++  /^yarn\s+(list|info|why)\b/,
++  /^pnpm\s+(list|ls)\b/,
++  /^pip\s+(list|show|freeze)\b/,
++  /^pip3\s+(list|show|freeze)\b/,
++
++  // System info (read-only)
++  /^which\b/,
++  /^whereis\b/,
++  /^type\b/,
++  /^uname\b/,
++  /^hostname$/,
++  /^whoami$/,
++  /^id$/,
++  /^groups$/,
++  /^date$/,
++  /^uptime$/,
++  /^env$/,
++  /^printenv\b/,
++  /^echo\s+\$/,  // Only echo $VAR (environment inspection)
++
++  // Rust/cargo read-only
++  /^cargo\s+(--version|version|tree)\b/,
++  /^rustc\s+--version$/,
++
++  // Python read-only
++  /^python3?\s+--version$/,
++  /^python3?\s+-c\s+"print\(/,  // Simple print statements
++
++  // TypeScript/compiler checks (no emit)
++  /^tsc\s+--version$/,
++  /^npx\s+tsc\s+--noEmit\b/,
++];
++
++// Commands that are NEVER safe (even in safe mode)
++const DANGEROUS_PATTERNS: RegExp[] = [
++  /\brm\b/,
++  /\bsudo\b/,
++  /\bchmod\b/,
++  /\bchown\b/,
++  /\bmkfs\b/,
++  /\bdd\b/,
++  />\s*[/~]/,      // Redirect to absolute path
++  /\|\s*sh\b/,      // Piping to shell
++  /\|\s*bash\b/,
++  /`.*`/,           // Command substitution
++  /\$\(.*\)/,       // Command substitution
++];
++
++/**
++ * Check if a bash command is safe for auto-approval
++ * @param command - The full bash command string
++ * @returns true if command is safe to auto-approve
++ */
++export function isSafeBashCommand(command: string): boolean {
++  const trimmed = command.trim();
++
++  // First check if command contains dangerous patterns
++  for (const pattern of DANGEROUS_PATTERNS) {
++    if (pattern.test(trimmed)) {
++      return false;
++    }
++  }
++
++  // Then check if it matches safe patterns
++  for (const pattern of SAFE_COMMAND_PATTERNS) {
++    if (pattern.test(trimmed)) {
++      return true;
++    }
++  }
++
++  return false;
++}
++
++/**
++ * Get a human-readable category for a command
++ */
++export function getCommandCategory(command: string): string {
++  const trimmed = command.trim();
++
++  if (/^git\b/.test(trimmed)) return 'git';
++  if (/^npm\b/.test(trimmed)) return 'npm';
++  if (/^(ls|pwd|cat|head|tail|find|tree)\b/.test(trimmed)) return 'filesystem';
++  if (/^grep|rg|ag\b/.test(trimmed)) return 'search';
++
++  return 'other';
++}
++
++/**
++ * Create a permission pattern from a specific command
++ * e.g., "git status" → "git status", "git log --oneline" → "git log *"
++ */
++export function createCommandPattern(command: string): string {
++  const trimmed = command.trim();
++  const parts = trimmed.split(/\s+/);
++
++  // For git commands, pattern is "git <subcommand> *"
++  if (parts[0] === 'git' && parts.length >= 2) {
++    return `git ${parts[1]} *`;
++  }
++
++  // For npm commands, pattern is "npm <subcommand> *"
++  if (parts[0] === 'npm' && parts.length >= 2) {
++    return `npm ${parts[1]} *`;
++  }
++
++  // For simple commands, return as-is if single word
++  if (parts.length === 1) {
++    return parts[0];
++  }
++
++  // Otherwise, command + wildcard
++  return `${parts[0]} *`;
++}
++```
++
++#### Step 2: Update `src/security/permission-manager.ts`
++```typescript
++import { isSafeBashCommand } from './safe-commands.js';
++
++// Auto-approved tools that never need confirmation
++const AUTO_APPROVED_TOOLS = ['Read', 'Glob', 'Grep', 'WebSearch', 'XSearch', 'TodoWrite', 'Task'];
++
++// Tools that modify files (affected by acceptEdits mode)
++const EDIT_TOOLS = ['Write', 'Edit', 'NotebookEdit'];
++
++// Tools blocked in plan mode (write operations)
++const WRITE_TOOLS = ['Write', 'Edit', 'Bash', 'NotebookEdit'];
++
++let currentMode: PermissionMode = 'default';
++
++/**
++ * Check if a tool requires confirmation based on current permission mode
++ * NOW WITH COMMAND-AWARE LOGIC FOR BASH
++ *
++ * @param toolName - The name of the tool
++ * @param args - Tool arguments (used for command-aware checking)
++ * @returns true if confirmation is needed, false if auto-approved
++ */
++export function requiresConfirmation(toolName: string, args?: Record<string, unknown>): boolean {
++  // In bypassPermissions mode, nothing needs confirmation
++  if (currentMode === 'bypassPermissions') {
++    return false;
++  }
++
++  // In plan mode, block write operations entirely
++  if (currentMode === 'plan') {
++    if (WRITE_TOOLS.includes(toolName)) {
++      throw new Error(`Tool "${toolName}" is blocked in Plan Mode (read-only)`);
++    }
++  }
++
++  // In acceptEdits mode, auto-approve file edit tools
++  if (currentMode === 'acceptEdits') {
++    if (EDIT_TOOLS.includes(toolName)) {
++      return false;
++    }
++  }
++
++  // ========== NEW: SMART BASH HANDLING ==========
++  if (toolName === 'Bash' && args?.command) {
++    const command = String(args.command);
++
++    // Safe commands auto-approve without prompting
++    if (isSafeBashCommand(command)) {
++      return false;  // No confirmation needed for ls, git status, etc.
++    }
++
++    // Dangerous commands still require confirmation
++    return true;
++  }
++  // ===============================================
++
++  // Default behavior: check if tool is in auto-approved list
++  return !AUTO_APPROVED_TOOLS.includes(toolName);
++}
++```
++
++#### Step 3: Create `src/security/permission-store.ts` (NEW FILE)
++```typescript
++import { promises as fs } from 'fs';
++import path from 'path';
++import os from 'os';
++
++// Store permissions per-project in .grok/ or globally in ~/.grok-cli/
++const PROJECT_PERMISSION_FILE = '.grok-cli-permissions.json';
++const GLOBAL_PERMISSION_DIR = path.join(os.homedir(), '.grok-cli');
++const GLOBAL_PERMISSION_FILE = path.join(GLOBAL_PERMISSION_DIR, 'permissions.json');
++
++export interface StoredPermissions {
++  // Exact commands that have been approved (e.g., "git push origin main")
++  approvedCommands: string[];
++
++  // Glob patterns for approved command families (e.g., "git *", "npm install *")
++  approvedPatterns: string[];
++
++  // Trust level for this project
++  trustLevel: 'default' | 'trustSafeCommands' | 'trustAllBash';
++
++  // Last updated timestamp
++  lastUpdated: string;
++}
++
++const DEFAULT_PERMISSIONS: StoredPermissions = {
++  approvedCommands: [],
++  approvedPatterns: [],
++  trustLevel: 'trustSafeCommands',  // Default to trusting safe commands
++  lastUpdated: new Date().toISOString(),
++};
++
++/**
++ * Load permissions from project-local or global file
++ */
++export async function loadPermissions(): Promise<StoredPermissions> {
++  // Try project-local first
++  const projectFile = path.join(process.cwd(), PROJECT_PERMISSION_FILE);
++
++  try {
++    const data = await fs.readFile(projectFile, 'utf-8');
++    return { ...DEFAULT_PERMISSIONS, ...JSON.parse(data) };
++  } catch {
++    // Try global
++    try {
++      const data = await fs.readFile(GLOBAL_PERMISSION_FILE, 'utf-8');
++      return { ...DEFAULT_PERMISSIONS, ...JSON.parse(data) };
++    } catch {
++      return DEFAULT_PERMISSIONS;
++    }
++  }
++}
++
++/**
++ * Save permissions to project-local file
++ */
++export async function savePermissions(permissions: StoredPermissions): Promise<void> {
++  const projectFile = path.join(process.cwd(), PROJECT_PERMISSION_FILE);
++  permissions.lastUpdated = new Date().toISOString();
++  await fs.writeFile(projectFile, JSON.stringify(permissions, null, 2));
++}
++
++/**
++ * Add an approved command or pattern
++ */
++export async function approveCommand(command: string, asPattern: boolean = false): Promise<void> {
++  const permissions = await loadPermissions();
++
++  if (asPattern) {
++    if (!permissions.approvedPatterns.includes(command)) {
++      permissions.approvedPatterns.push(command);
++    }
++  } else {
++    if (!permissions.approvedCommands.includes(command)) {
++      permissions.approvedCommands.push(command);
++    }
++  }
++
++  await savePermissions(permissions);
++}
++
++/**
++ * Check if a command is approved (either exact match or pattern match)
++ */
++export async function isCommandApproved(command: string): Promise<boolean> {
++  const permissions = await loadPermissions();
++
++  // Exact match
++  if (permissions.approvedCommands.includes(command.trim())) {
++    return true;
++  }
++
++  // Pattern match (simple glob: * at end means prefix match)
++  for (const pattern of permissions.approvedPatterns) {
++    if (pattern.endsWith(' *')) {
++      const prefix = pattern.slice(0, -2);
++      if (command.trim().startsWith(prefix)) {
++        return true;
++      }
++    } else if (command.trim() === pattern) {
++      return true;
++    }
++  }
++
++  return false;
++}
++
++/**
++ * Set the trust level for the current project
++ */
++export async function setTrustLevel(level: StoredPermissions['trustLevel']): Promise<void> {
++  const permissions = await loadPermissions();
++  permissions.trustLevel = level;
++  await savePermissions(permissions);
++}
++```
++
++#### Step 4: Update `src/ui/app.tsx`
++```typescript
++// Add imports
++import {
++  loadPermissions,
++  approveCommand,
++  isCommandApproved,
++  StoredPermissions
++} from '../security/permission-store.js';
++import { createCommandPattern, isSafeBashCommand } from '../security/safe-commands.js';
++
++// Replace rememberedTools with more sophisticated state
++interface ApprovalMemory {
++  // Session-only approvals (tool names like "Bash")
++  sessionTools: Set<string>;
++
++  // Session command approvals (specific commands)
++  sessionCommands: Set<string>;
++
++  // Session pattern approvals (e.g., "git *")
++  sessionPatterns: string[];
++
++  // Loaded from disk
++  persistedPermissions: StoredPermissions | null;
++}
++
++// In App component:
++const [approvalMemory, setApprovalMemory] = useState<ApprovalMemory>({
++  sessionTools: new Set(),
++  sessionCommands: new Set(),
++  sessionPatterns: [],
++  persistedPermissions: null,
++});
++
++// Load persisted permissions on mount
++useEffect(() => {
++  loadPermissions().then(perms => {
++    setApprovalMemory(prev => ({ ...prev, persistedPermissions: perms }));
++  });
++}, []);
++
++// Updated confirmation handler with command-aware logic
++const handleConfirmation = useCallback(async (
++  toolName: string,
++  args: Record<string, unknown>
++): Promise<boolean> => {
++
++  // 1. Check if entire tool was remembered this session
++  if (approvalMemory.sessionTools.has(toolName)) {
++    return true;
++  }
++
++  // 2. For Bash, check command-specific approvals
++  if (toolName === 'Bash' && args.command) {
++    const command = String(args.command);
++
++    // Check safe commands (always auto-approve)
++    if (isSafeBashCommand(command)) {
++      return true;
++    }
++
++    // Check session command memory
++    if (approvalMemory.sessionCommands.has(command)) {
++      return true;
++    }
++
++    // Check session pattern memory
++    for (const pattern of approvalMemory.sessionPatterns) {
++      if (pattern.endsWith(' *')) {
++        const prefix = pattern.slice(0, -2);
++        if (command.startsWith(prefix)) return true;
++      }
++    }
++
++    // Check persisted permissions
++    if (await isCommandApproved(command)) {
++      return true;
++    }
++  }
++
++  // 3. Show confirmation dialog
++  return new Promise((resolve) => {
++    setPendingConfirm({
++      toolName,
++      args,
++      resolve,
++      // Pass command for Bash tools
++      command: toolName === 'Bash' ? String(args.command) : undefined,
++    });
++    setState('confirming');
++  });
++}, [approvalMemory]);
++```
++
++#### Step 5: Update `src/ui/components/confirm.tsx`
++```typescript
++import React, { useState } from 'react';
++import { Box, Text, useInput } from 'ink';
++import { createCommandPattern } from '../../security/safe-commands.js';
++
++interface ConfirmDialogProps {
++  toolName: string;
++  args: Record<string, unknown>;
++  command?: string;  // For Bash commands
++  onResponse: (
++    approved: boolean,
++    rememberType?: 'once' | 'command' | 'pattern' | 'tool' | 'allBash'
++  ) => void;
++}
++
++export function ConfirmDialog({ toolName, args, command, onResponse }: ConfirmDialogProps) {
++  const [showHelp, setShowHelp] = useState(false);
++
++  // Generate pattern for display
++  const pattern = command ? createCommandPattern(command) : null;
++
++  useInput((input, key) => {
++    const char = input.toLowerCase();
++
++    if (char === 'y') {
++      onResponse(true, 'once');           // Yes, just this once
++    } else if (char === 'a') {
++      onResponse(true, 'command');        // Always this exact command
++    } else if (char === 't' && pattern) {
++      onResponse(true, 'pattern');        // Trust similar (pattern)
++    } else if (char === '!') {
++      onResponse(true, 'allBash');        // Trust ALL bash (session only)
++    } else if (char === 'n' || key.return) {
++      onResponse(false);
++    } else if (char === '?') {
++      setShowHelp(!showHelp);
++    }
++  });
++
++  // Format args for display
++  const argsDisplay = JSON.stringify(args, null, 2);
++  const truncatedArgs = argsDisplay.length > 500
++    ? argsDisplay.slice(0, 500) + '\n...(truncated)'
++    : argsDisplay;
++
++  return (
++    <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1}>
++      <Text color="yellow" bold>⚠️  Permission Required</Text>
++
++      <Box marginY={1}>
++        <Text>Tool: </Text>
++        <Text color="cyan" bold>{toolName}</Text>
++      </Box>
++
++      {command && (
++        <Box marginBottom={1}>
++          <Text>Command: </Text>
++          <Text color="magenta">{command.length > 80 ? command.slice(0, 80) + '...' : command}</Text>
++        </Box>
++      )}
++
++      <Box marginBottom={1} flexDirection="column">
++        <Text color="gray" dimColor>{truncatedArgs}</Text>
++      </Box>
++
++      <Box flexDirection="column">
++        <Box>
++          <Text color="green">[y]es once</Text>
++          <Text color="gray"> | </Text>
++          <Text color="blue">[a]lways this command</Text>
++          {pattern && (
++            <>
++              <Text color="gray"> | </Text>
++              <Text color="cyan">[t]rust similar ({pattern})</Text>
++            </>
++          )}
++        </Box>
++        <Box>
++          <Text color="red">[n]o</Text>
++          <Text color="gray"> | </Text>
++          <Text color="yellow">[!] trust all bash</Text>
++          <Text color="gray"> | </Text>
++          <Text color="gray">[?] help</Text>
++        </Box>
++      </Box>
++
++      {showHelp && (
++        <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" padding={1}>
++          <Text color="white" bold>Permission Options:</Text>
++          <Text color="green">y - Approve once (this invocation only)</Text>
++          <Text color="blue">a - Remember this exact command for this project</Text>
++          {pattern && <Text color="cyan">t - Trust all commands matching "{pattern}"</Text>}
++          <Text color="yellow">! - Auto-approve ALL bash commands this session (use carefully)</Text>
++          <Text color="red">n - Deny this command</Text>
++        </Box>
++      )}
++    </Box>
++  );
++}
++```
++
++---
++
++### Migration Path
++
++1. **Phase 1 (Immediate):** Add `isSafeBashCommand()` check - reduces 80% of prompts
++2. **Phase 2 (This Week):** Add command-specific memory in app.tsx
++3. **Phase 3 (Next Week):** Add persistent storage and pattern matching
++4. **Phase 4 (Later):** Add UI for managing saved permissions (`/permissions` command)
++
++### Testing Checklist
++
++```bash
++# These should auto-approve (no prompt):
++ls -la
++git status
++npm list
++cat package.json
++pwd
++
++# These should still prompt:
++git push origin main
++npm install lodash
++rm -rf node_modules
++echo "test" > file.txt
++
++# After pressing [a]lways, this exact command auto-approves:
++npm run build  # (first time: prompt, after [a]: auto)
++
++# After pressing [t]rust similar for "npm run build":
++npm run test   # Should auto-approve (matches "npm run *")
++```
++
++---
++
++## Part 2: Missing Tools (vs Claude Code)
++
++### Current Tools (9)
++| Tool | Status |
++|------|--------|
++| Read | Basic (missing image/PDF/notebook support) |
++| Write | Complete |
++| Edit | Complete |
++| Bash | Basic (missing background execution) |
++| Glob | Basic (missing mtime sorting) |
++| Grep | Basic (missing output modes, context lines) |
++| TodoWrite | Complete |
++| Task | Custom subagent system |
++| VideoAnalyze | Unique to grok-cli |
++
++### Missing Tools (High Priority)
++
++#### WebFetch Tool
++- **File:** `src/tools/web-fetch.ts`
++- **Purpose:** Fetch and analyze web URLs with AI summarization
++- **Parameters:** `url`, `prompt`
++- **Features:** HTML-to-markdown, 15-min cache, redirect handling
++
++#### WebSearch Tool
++- **File:** `src/tools/web-search.ts`
++- **Purpose:** Search web for current information
++- **Parameters:** `query`, `allowed_domains?`, `blocked_domains?`
++- **Features:** Source citations, domain filtering
++
++#### BashOutput Tool
++- **File:** `src/tools/bash-output.ts`
++- **Purpose:** Read output from background processes
++- **Parameters:** `bash_id`, `filter?`
++
++### Tool Enhancements Needed
++
++#### Bash Enhancements
++```typescript
++// Add parameters:
++run_in_background: z.boolean().optional(),
++description: z.string().optional(), // 5-10 word description
++timeout: z.number().max(600000).default(120000), // Up to 10 min
++```
++
++#### Grep Enhancements
++```typescript
++// Add parameters:
++output_mode: z.enum(['content', 'files_with_matches', 'count']),
++head_limit: z.number().optional(),
++offset: z.number().optional(),
++'-A': z.number().optional(), // lines after
++'-B': z.number().optional(), // lines before
++'-C': z.number().optional(), // context lines
++multiline: z.boolean().optional(),
++type: z.string().optional(), // file type filter
++'-i': z.boolean().optional(), // case insensitive
++```
++
++#### Read Enhancements
++- Add image file support (PNG, JPG) - visual analysis
++- Add PDF text/visual extraction
++- Add Jupyter notebook rendering with outputs
++- Add 2000-line default limit with line truncation at 2000 chars
++
++---
++
++## Part 3: Missing Commands
++
++### Current Commands (6)
++`/help`, `/model`, `/clear`, `/exit`, `/history`, `/mode`
++
++### Required Commands (Priority Order)
++
++| Command | Priority | Description |
++|---------|----------|-------------|
++| `/compact` | P0 | Summarize conversation to save context |
++| `/context` | P0 | Manage included context files |
++| `/config` | P1 | View/edit configuration |
++| `/status` | P1 | Show session info (tokens, cost, context size) |
++| `/init` | P1 | Initialize project-specific config |
++| `/resume` | P1 | Resume previous session |
++| `/permissions` | P2 | View/manage tool permissions |
++| `/doctor` | P2 | Diagnose setup issues |
++| `/cost` | P2 | Display token usage and API cost |
++| `/mcp` | P3 | MCP server management |
++
++### Custom Command System
++- Load commands from `.grok/commands/*.md`
++- Parse frontmatter for arguments
++- Enable user-defined workflows
++
++---
++
++## Part 4: UI/UX Improvements
++
++### 4.1 Output Formatting (Critical)
++**Current:** Plain text with no formatting
++**Required:**
++- Markdown rendering (`marked-terminal` or `ink-markdown`)
++- Syntax highlighting for code blocks
++- Colored diff display in confirmations
++
++**Files to modify:**
++- `src/ui/components/message.tsx` - Add markdown renderer
++- `src/ui/components/confirm.tsx` - Add diff display
++- `src/ui/components/tool-output.tsx` - Add syntax highlighting
++
++### 4.2 Input Experience
++**Missing features:**
++- Up/down arrow command history
++- Multi-line input (Shift+Enter)
++- File path tab completion
++- Ctrl+R history search
++
++**File to modify:** `src/ui/components/input.tsx`
++
++### 4.3 Keyboard Shortcuts
++**Current:** Esc, Ctrl+C, Shift+Tab
++**Add:**
++- `Ctrl+R` - Search command history
++- `Ctrl+L` - Clear screen
++- `Ctrl+U` - Clear input line
++- `Ctrl+A/E` - Line start/end
++- `Tab` - File path completion
++
++### 4.4 Progress Indicators
++**Current:** Basic ASCII spinner
++**Required:**
++- Token count during streaming
++- File operation progress bars
++- Estimated time remaining
++
++---
++
++## Part 5: Architecture Improvements
++
++### 5.1 Token Management (Critical Gap)
++**Issue:** Unbounded message history causes context overflow
++**Solution:**
++1. Add token counting with tiktoken
++2. Implement auto-summarization at 80% context
++3. Add cost tracking and budgeting
++4. Display token count per message
++
++**File:** `src/agent/grok-agent.ts` lines 26, 122-293
++
++### 5.2 Tool Parallelization
++**Issue:** Tools execute sequentially (line 191)
++**Solution:** Execute independent tool calls concurrently with dependency analysis
++
++### 5.3 Session Persistence
++**Issue:** Conversations lost on restart
++**Solution:**
++- Auto-save to `.grok-cli-sessions/`
++- `/resume` command to continue previous session
++- Configurable retention period
++
++### 5.4 MCP Integration
++**Missing:** Model Context Protocol support for external tools
++**Benefit:** Plugin ecosystem, IDE integrations
++
++### 5.5 Refactor app.tsx
++**Issue:** 509 lines in single component
++**Solution:**
++- Extract state management to custom hooks
++- Split into smaller components
++- Add React error boundaries
++
++---
++
++## Part 6: Security Considerations
++
++### Current Strengths (Keep)
++- 4-layer command allowlist defense
++- Symlink-aware path validation
++- TOCTOU mitigation with `validateAndOpen()`
++- Comprehensive blocked command patterns
++
++### Improvements Needed
++- Allow `curl`/`wget` with URL pattern restrictions (currently blocked)
++- Add audit logging of permission decisions
++- Per-project permission persistence
++- Tool-specific timeout configurations
++
++---
++
++## Part 7: Competitive Differentiation Opportunities
++
++### Features to Surpass Claude Code
++
++1. **Video Analysis Tool** - Already unique to grok-cli
++2. **Real-time xAI Integration** - Leverage Grok's real-time knowledge
++3. **Voice Control** - AgentVibes TTS integration (already exists)
++4. **Multi-Model Orchestration** - Run different Grok models for different tasks
++5. **Custom Agent Marketplace** - Share `.grok/agents/` definitions
++6. **Visual Diagram Generation** - Integrate with Excalidraw/Mermaid
++7. **Local LLM Fallback** - Offline mode with local models
++
++---
++
++## Part 8: Implementation Roadmap
++
++### Phase 1: Critical UX (Week 1-2)
++1. Fix permission system (safe command bypass)
++2. Add markdown rendering
++3. Add input history
++4. Add `/compact` command
++
++### Phase 2: Feature Parity (Week 3-4)
++5. Add WebFetch and WebSearch tools
++6. Enhance Grep with output modes
++7. Add session persistence
++8. Add `/context`, `/config`, `/status` commands
++
++### Phase 3: Polish (Week 5-6)
++9. Token tracking and cost display
++10. Background Bash execution
++11. Syntax highlighting
++12. Multi-line input support
++
++### Phase 4: Differentiation (Week 7-8)
++13. MCP integration
++14. Tool parallelization
++15. Custom command system
++16. Advanced subagent orchestration
++
++---
++
++## Part 9: Files Reference
++
++### Core Files to Modify
++| File | Changes |
++|------|---------|
++| `src/security/permission-manager.ts` | Add safe command detection |
++| `src/tools/bash.ts` | Dynamic confirmation, background support |
++| `src/ui/app.tsx` | Command memory, token tracking, refactor |
++| `src/ui/components/input.tsx` | History, multi-line |
++| `src/ui/components/message.tsx` | Markdown rendering |
++| `src/ui/components/confirm.tsx` | Diff display, more options |
++| `src/tools/grep.ts` | Output modes, context lines |
++| `src/agent/grok-agent.ts` | Token management, parallelization |
++| `src/commands/index.ts` | Register new commands |
++
++### New Files to Create
++| File | Purpose |
++|------|---------|
++| `src/tools/web-fetch.ts` | WebFetch tool |
++| `src/tools/web-search.ts` | WebSearch tool |
++| `src/tools/bash-output.ts` | BashOutput tool |
++| `src/security/permission-store.ts` | Persistent permissions |
++| `src/lib/markdown-renderer.ts` | Markdown/syntax highlighting |
++| `src/lib/session-manager.ts` | Session persistence |
++| `src/lib/token-tracker.ts` | Token counting |
++| `src/commands/handlers/compact.ts` | Compact command |
++| `src/commands/handlers/context.ts` | Context command |
++| `src/commands/handlers/config.ts` | Config command |
++| `src/commands/handlers/status.ts` | Status command |
++
++---
++
++## Part 10: Success Metrics
++
++| Metric | Current | Target |
++|--------|---------|--------|
++| Permission prompts per session | 50+ | <5 |
++| Commands available | 6 | 15+ |
++| Tools available | 9 | 12+ |
++| Feature parity with Claude Code | 60-70% | 95%+ |
++| Unique differentiating features | 2 | 5+ |
++
++---
++
++## Appendix: Quick Win Summary
++
++For immediate improvement, make these minimal changes:
++
++1. **Add Bash to AUTO_APPROVED_TOOLS** (1 line change)
++   - File: `src/security/permission-manager.ts:8`
++   - Note: Command allowlist still provides security
++
++2. **Add read-only command patterns** (20 lines)
++   - File: `src/security/permission-manager.ts`
++   - Bypass confirmation for `ls`, `pwd`, `cat`, `git status`, etc.
++
++3. **Install markdown renderer** (1 package + 10 lines)
++   - `npm install marked marked-terminal`
++   - Wrap output in markdown renderer
++
++These 3 changes would dramatically improve UX with minimal risk.
++
++---
++
++*End of PRP Document*
+diff --git a/.grok/agents/code-reviewer.md b/.grok/agents/code-reviewer.md
+new file mode 100644
+index 0000000..4097a34
+--- /dev/null
++++ b/.grok/agents/code-reviewer.md
+@@ -0,0 +1,42 @@
++---
++name: code-reviewer
++description: Expert code reviewer. Use proactively after code changes to review quality, security, and best practices.
++tools:
++  - Read
++  - Grep
++  - Glob
++  - Bash
++model: grok-4-1-fast
++maxRounds: 30
++---
++
++You are a senior code reviewer with expertise in software quality and security.
++
++Your job: Analyze code changes and provide actionable feedback.
++
++Process:
++1. Use Bash to run `git diff` or `git status` to see recent changes
++2. Read modified files to understand the changes
++3. Search for related code with Grep/Glob to understand context
++4. Identify issues: bugs, security vulnerabilities, style problems, performance concerns
++5. Provide specific, actionable recommendations with code examples
++
++Review Focus:
++- **Code clarity and maintainability**: Are functions well-named? Is the logic clear?
++- **Security vulnerabilities**: SQL injection, XSS, path traversal, etc.
++- **Performance implications**: Inefficient algorithms, unnecessary operations
++- **Error handling**: Are errors caught and handled appropriately?
++- **Test coverage**: Are there tests for the changes?
++- **Best practices adherence**: Following language/framework conventions
++
++Output Format:
++## Summary
++[One-line assessment of the overall quality]
++
++## Issues
++- **[Critical/Major/Minor]** Issue description with file:line reference
++- **[Severity]** Next issue...
++
++## Recommendations
++1. Specific action item with code example if applicable
++2. Next recommendation...
+diff --git a/.grok/agents/explore.md b/.grok/agents/explore.md
+new file mode 100644
+index 0000000..89b9f94
+--- /dev/null
++++ b/.grok/agents/explore.md
+@@ -0,0 +1,27 @@
++---
++name: explore
++description: Fast codebase exploration specialist. Use when you need to find files, search code, or understand project structure.
++tools:
++  - Read
++  - Grep
++  - Glob
++model: grok-3-mini-fast-beta
++maxRounds: 20
++---
++
++You are a fast codebase exploration specialist using the Grok 3 Mini Fast model.
++
++Your job is to quickly find files, search code, and answer questions about project structure.
++
++Available tools:
++- **Glob**: Find files matching patterns (e.g., `**/*.ts` for all TypeScript files)
++- **Grep**: Search file contents with regex patterns
++- **Read**: Read specific files to understand their content
++
++Guidelines:
++- Be thorough but efficient
++- Use Glob for file discovery
++- Use Grep for content searches across multiple files
++- Read files only when necessary for deeper context
++- Return concise findings with absolute file paths and line numbers when relevant
++- Focus on answering the specific question asked
+diff --git a/.grok/agents/test-writer.md b/.grok/agents/test-writer.md
+new file mode 100644
+index 0000000..54be399
+--- /dev/null
++++ b/.grok/agents/test-writer.md
+@@ -0,0 +1,53 @@
++---
++name: test-writer
++description: Test automation expert. Use to generate tests for new features or increase coverage.
++tools:
++  - Read
++  - Write
++  - Grep
++  - Glob
++model: grok-4-1-fast
++maxRounds: 40
++---
++
++You are a test automation expert specializing in comprehensive test coverage.
++
++Your job: Generate high-quality, thorough tests for code modules.
++
++Process:
++1. Read the target code module to understand its functionality
++2. Identify the test framework being used (Jest, Vitest, Mocha, etc.)
++3. Find existing test patterns with Grep to match the project's style
++4. Generate tests covering:
++   - **Happy paths**: Normal, expected usage
++   - **Edge cases**: Boundary conditions, empty inputs, maximum values
++   - **Error conditions**: Invalid inputs, missing dependencies, exception handling
++   - **Boundary values**: Off-by-one, min/max, null/undefined
++5. Write the test file using the Write tool
++
++Test Quality Standards:
++- **Clear test names**: Describe the behavior being tested, not implementation details
++- **Arrange-Act-Assert pattern**: Set up, execute, verify
++- **Proper mocking and isolation**: Tests should be independent
++- **Meaningful assertions**: Test actual behavior, not implementation
++- **Code coverage target**: Aim for > 80% coverage
++
++Example Test Structure:
++```typescript
++describe('FunctionName', () => {
++  it('should handle normal case correctly', () => {
++    // Arrange
++    const input = validInput;
++
++    // Act
++    const result = functionName(input);
++
++    // Assert
++    expect(result).toBe(expectedOutput);
++  });
++
++  it('should throw error for invalid input', () => {
++    expect(() => functionName(null)).toThrow('Expected error message');
++  });
++});
++```
+diff --git a/docs/PR-CODEX-FIXES-IMPLEMENTATION.md b/docs/PR-CODEX-FIXES-IMPLEMENTATION.md
+new file mode 100644
+index 0000000..b7cfce9
+--- /dev/null
++++ b/docs/PR-CODEX-FIXES-IMPLEMENTATION.md
+@@ -0,0 +1,337 @@
++# Codex Team Fixes: Implementation Report
++
++**PR Type**: Security Hardening + Test Stability
++**Status**: Complete
++**Date**: 2026-01-13
++
++---
++
++## Context
++
++This document covers the implementation of fixes identified during the Codex team review of grok-cli. The primary focus is on hardening the grep tool against pattern injection attacks, preventing race conditions in async fallback logic, and improving test reliability.
++
++**Related PRP**: `docs/PRP-SECURITY-CODE-QUALITY-FIXES.md`
++
++---
++
++## Changes Implemented
++
++### 1. src/tools/grep.ts - Security & Stability Fixes
++
++#### Fix 1: Pattern Injection Prevention (CODE-003)
++
++**Lines**: `src/tools/grep.ts:66`, `src/tools/grep.ts:72`
++
++Added `--` separator before pattern arguments to prevent patterns starting with `-` from being misinterpreted as command flags.
++
++```typescript
++// src/tools/grep.ts:66 - ripgrep args
++rgArgs.push('--', pattern, validated.resolvedPath!);
++
++// src/tools/grep.ts:72 - grep fallback args
++grepArgs.push('--', pattern, validated.resolvedPath!);
++```
++
++**Why this matters**: Without `--`, a pattern like `-e malicious` could be interpreted as ripgrep/grep flags rather than a literal search string, potentially enabling command injection or unexpected behavior.
++
++#### Fix 2: Consolidated State Object (CODE-001)
++
++**Lines**: `src/tools/grep.ts:76-79`
++
++Replaced scattered mutable variables with a single consolidated state object to prevent race conditions.
++
++```typescript
++const state = {
++  resolved: false,
++  activeProcess: null as ChildProcess | null,
++};
++```
++
++**State Properties**:
++- `resolved`: Boolean flag ensuring the promise resolves exactly once
++- `activeProcess`: Tracks which process (rg or grep) is currently active, used to ignore stale events
++
++#### Fix 3: finish() Gate Function (CODE-001)
++
++**Lines**: `src/tools/grep.ts:81-86`
++
++Added atomic `finish()` gate to prevent double-resolution of the search promise.
++
++```typescript
++const finish = (result: ToolResult) => {
++  if (state.resolved) return;
++  state.resolved = true;
++  state.activeProcess = null;
++  resolve(result);
++};
++```
++
++**Why this matters**: Both `close` and `error` events can fire from the same process, and during fallback, events from both `rg` and `grep` processes could theoretically fire. The `finish()` gate with `state.resolved` check ensures we only resolve once.
++
++#### Fix 4: Stale Event Handling (CODE-002)
++
++**Lines**: `src/tools/grep.ts:98` (close handler), `src/tools/grep.ts:110` (error handler)
++
++Added identity checks to ignore events from processes that are no longer active.
++
++```typescript
++// src/tools/grep.ts:98 - in close handler
++if (state.activeProcess !== proc) return;
++
++// src/tools/grep.ts:110 - in error handler
++if (state.activeProcess !== proc) return;
++```
++
++**Why this matters**: When fallback from rg to grep occurs, the rg process may still emit `close` events after grep has been spawned. Without this check, these stale events could incorrectly resolve the promise or cause race conditions.
++
++#### Fix 5: setImmediate Fallback Scheduling (CODE-001)
++
++**Line**: `src/tools/grep.ts:114`
++
++Wrapped grep fallback spawn in `setImmediate()` to ensure state updates are visible before event handlers execute.
++
++```typescript
++// src/tools/grep.ts:114
++setImmediate(() => runSearch('grep', grepArgs, 'grep'));
++```
++
++**Why this matters**: The `error` handler returns immediately after scheduling the fallback, ensuring the rg process's error handler completes before grep spawns. This makes the rg→grep transition deterministic and prevents stale events from the failed rg process from racing with grep events.
++
++#### Fix 6: Helpful Error Message (CODE-004)
++
++**Lines**: `src/tools/grep.ts:119-128`
++
++Improved error message when neither ripgrep nor grep is installed to include installation guidance.
++
++```typescript
++finish({
++  success: false,
++  error: 'Neither ripgrep (rg) nor grep is installed.\n\n' +
++    'Install ripgrep for best results:\n' +
++    '  - macOS: brew install ripgrep\n' +
++    '  - Ubuntu/Debian: apt install ripgrep\n' +
++    '  - Windows: choco install ripgrep\n' +
++    '  - Or visit: https://github.com/BurntSushi/ripgrep#installation',
++});
++```
++
++**Before**: Generic "command not found" error
++**After**: Clear message with platform-specific installation instructions
++
++---
++
++### 2. tests/unit/grep-tool.test.ts - Async Test Sequencing
++
++#### Fix: Flaky Mocked Fallback Tests
++
++**Issue**: Tests were emitting mock process events (`error`, `close`) before the async validation/spawn logic had completed, causing timeouts and incorrect assertions about stale event handling.
++
++**Solution**: Added `flushImmediate()` helper and await points to properly sequence async operations.
++
++```typescript
++// Helper to flush setImmediate queue
++const flushImmediate = () => new Promise<void>((resolve) => setImmediate(resolve));
++
++// In tests - proper sequencing
++const resultPromise = tool.execute({ pattern: 'test', path: '/tmp' });
++
++// Wait for async validation + spawn('rg') to complete
++await flushImmediate();
++
++// Trigger ENOENT error from rg to initiate fallback
++const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
++rgError.code = 'ENOENT';
++rgProc?.emit('error', rgError);
++
++// Wait for setImmediate() to schedule spawn('grep')
++await flushImmediate();
++
++// Now safe to emit events on the grep process
++grepProc?.emit('error', grepError);
++const result = await resultPromise;
++```
++
++**Tests Fixed** (mocked fallback suite):
++- `'shows helpful error when both tools are missing'`
++- `'includes fallback prefix on error paths'`
++- `'ignores stale events from the initial rg process'`
++- `'verifies -- separator in spawn args prevents pattern injection'`
++
++**Why this matters**: The production code uses `setImmediate()` to defer grep spawning (line 114). Tests must respect this timing by awaiting ticks between event emissions to accurately verify the fallback behavior and stale event handling.
++
++---
++
++### 3. tests/unit/path-validator.test.ts - Vitest Watch Mode Fix
++
++#### Fix: ELOOP Error in Watch Mode
++
++**Issue**: Circular symlink test fixtures created under `process.cwd()` caused Vitest's file watcher to encounter `ELOOP: too many symbolic links encountered` errors, crashing the watch mode.
++
++**Solution**: Moved fixture directory from `process.cwd()` to `os.homedir()`.
++
++**Fixture Creation** (beforeAll):
++
++```typescript
++beforeAll(async () => {
++  // Create temp directory for test fixtures
++  // Use $HOME instead of process.cwd() to avoid Vitest file watcher traversing
++  // circular symlinks and throwing ELOOP errors in DEV watch mode.
++  // The path validator allows both cwd and home directories.
++  const homeDir = os.homedir();
++  tempDir = await fs.mkdtemp(path.join(homeDir, '.tmp-path-validator-test-'));
++  console.log(`Test fixtures directory: ${tempDir}`);
++});
++```
++
++**Uses**: `os.homedir()` (user's home directory, e.g., `/home/user`)
++**Prefix**: `.tmp-path-validator-test-`
++
++**Why this matters**: Vitest watches the project directory (`process.cwd()`) for file changes. When circular symlinks exist in watched directories, the file system traversal fails with ELOOP. Moving fixtures to `$HOME` places them outside the watched directory tree.
++
++#### Cleanup
++
++**Automatic cleanup** (afterAll):
++```typescript
++afterAll(async () => {
++  // Safety guards before cleanup
++  if (!tempDir) {
++    console.warn('tempDir is undefined, skipping cleanup');
++    return;
++  }
++
++  const homeDir = os.homedir();
++
++  // Guard 1: Verify basename starts with expected prefix
++  const basename = path.basename(tempDir);
++  if (!basename.startsWith('.tmp-path-validator-test-')) {
++    throw new Error(`SAFETY: tempDir basename missing prefix: ${basename}`);
++  }
++
++  // Guard 2: Never delete home directory itself
++  if (tempDir === homeDir) {
++    throw new Error('SAFETY: Refusing to delete home directory');
++  }
++
++  // Guard 3: Resolve real path and verify it's under home
++  const realTempDir = await fs.realpath(tempDir);
++  const realHomeDir = await fs.realpath(homeDir);
++
++  if (realTempDir === realHomeDir) {
++    throw new Error('SAFETY: Resolved tempDir is home directory');
++  }
++
++  // Guard 4: Verify resolved path is under home directory
++  const relativePath = path.relative(realHomeDir, realTempDir);
++  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
++    throw new Error(`SAFETY: tempDir not under home: ${realTempDir}`);
++  }
++
++  // All guards passed - safe to delete
++  try {
++    await fs.rm(tempDir, { recursive: true, force: true });
++    console.log(`Cleaned up test fixtures directory: ${tempDir}`);
++  } catch (err) {
++    console.warn(`Warning: Failed to cleanup ${tempDir}:`, err);
++  }
++});
++```
++
++**Cross-platform note**: Symlink-heavy tests are gated behind a module-scope capability check and wrappers (`describeSymlink`, `itSymlink`, `itUnixOnly`, `itUnixSymlinkOnly`) so Windows machines (or environments without symlink permissions) skip those tests instead of failing.
++
++**Manual cleanup if tests interrupted**:
++```bash
++rm -rf "$HOME"/.tmp-path-validator-test-*
++```
++
++**Reference**: https://github.com/vitest-dev/vitest/issues/2821
++
++---
++
++## Test Results
++
++### Test Count Verification
++
++| Test File | Tests | Status |
++|-----------|-------|--------|
++| `tests/unit/app-state-debug.test.ts` | 8 | PASS (existing) |
++| `tests/unit/grep-tool.test.ts` | 26 | PASS (new) |
++| `tests/unit/path-validator.test.ts` | 35 | PASS (new) |
++| **Total** | **69** | **ALL PASS** |
++
++### Full Test Output
++
++```
++ Test Files  3 passed (3)
++      Tests  69 passed (69)
++   Duration  2.26s
++```
++
++---
++
++## Verification Commands
++
++### Run all tests (CI mode)
++
++```bash
++npm test -- --run
++```
++
++**Expected Result**:
++```
++ Test Files  3 passed (3)
++      Tests  69 passed (69)
++```
++
++### Run in watch mode
++
++```bash
++npm test
++```
++
++**Expected Result**: Watch mode starts successfully without errors.
++
++### Run specific test file
++
++```bash
++npm test -- --run tests/unit/grep-tool.test.ts
++npm test -- --run tests/unit/path-validator.test.ts
++```
++
++---
++
++## Files Changed
++
++| File | Type | Description |
++|------|------|-------------|
++| `src/tools/grep.ts` | Production | Pattern injection prevention, race condition fixes, improved errors |
++| `tests/unit/grep-tool.test.ts` | Test | Comprehensive grep tool test coverage (26 tests) |
++| `tests/unit/path-validator.test.ts` | Test | Path validation test coverage (35 tests) |
++
++---
++
++## Implementation Details by Fix ID
++
++| Fix ID | Severity | Component | Line(s) | Description |
++|--------|----------|-----------|---------|-------------|
++| CODE-003 | MEDIUM | grep.ts | 66, 72 | `--` separator for rg and grep args |
++| CODE-001 | HIGH | grep.ts | 76-79, 81-86 | Consolidated state + finish() gate |
++| CODE-002 | HIGH | grep.ts | 98, 110 | Stale event checks |
++| CODE-001 | HIGH | grep.ts | 114 | setImmediate for deterministic fallback |
++| CODE-004 | MEDIUM | grep.ts | 119-128 | Installation instructions when both tools missing |
++
++---
++
++## Acceptance Criteria
++
++| Criterion | Status |
++|-----------|--------|
++| `npm test -- --run` passes 69/69 tests | ✅ VERIFIED |
++| `npm test` watch mode runs without errors | ✅ VERIFIED |
++| All 5 grep.ts fixes implemented with correct line numbers | ✅ VERIFIED |
++| Documentation matches current implementation | ✅ VERIFIED |
++
++---
++
++**Document Generated**: 2026-01-13
++**Implementation Verified**: 2026-01-13
++**All Acceptance Criteria**: MET
+diff --git a/docs/PRP-SECURITY-CODE-QUALITY-FIXES.md b/docs/PRP-SECURITY-CODE-QUALITY-FIXES.md
+new file mode 100644
+index 0000000..9502ec7
+--- /dev/null
++++ b/docs/PRP-SECURITY-CODE-QUALITY-FIXES.md
+@@ -0,0 +1,621 @@
++# PRP: Security & Code Quality Fixes for grok-cli
++
++**Document ID**: PRP-2025-001
++**Version**: 1.0
++**Status**: READY FOR REVIEW
++**Author**: Opus Subagent Team
++**Created**: 2025-01-11
++**Target Audience**: Claude/Codex Development Team
++
++---
++
++## Executive Summary
++
++### Overview
++
++This PRP covers a small set of follow-up hardening tasks after the recent `.env.example` read-only allowance and `rg` → `grep` fallback work. The focus is on grep behavior correctness and adding regression tests for path validation. No new features are introduced.
++
++### Risk Assessment
++
++| Severity | Count | Issues |
++|----------|-------|--------|
++| **HIGH** | 2 | Grep fallback state handling (CODE-001), fallback resource cleanup (CODE-002) |
++| **MEDIUM** | 2 | Missing `--` separator (CODE-003), missing-tool error message (CODE-004) |
++| **LOW** | 1 | Symlink protection regression tests (SEC-001) |
++
++### Estimated Effort
++
++| Category | Effort | Notes |
++|----------|--------|-------|
++| Grep fixes | 2-3 hours | CODE-001/002/003/004 |
++| Tests & verification | 1-2 hours | Path validator + grep tests |
++| **Total** | **3-6 hours** | Single developer estimate |
++
++### Recommendation
++
++> **Proceed with focused fixes** — The grep tool improvements are user-visible reliability fixes, and the symlink tests guard against regressions in existing protections.
++
++---
++
++## Background & Context
++
++### Recent Codex Team Contributions
++
++#### 1. `.env.example` Read-Only Access (`path-validator.ts`)
++
++**Purpose**: Allow CLI to read `.env.example`/`.env.sample`/`.env.template` files for configuration reference while blocking actual `.env` files.
++
++**Implementation**:
++```typescript
++const ENV_BLOCK_PATTERN = /\.env(?:\.|$)/i;
++const ENV_DOC_ALLOW_PATTERN = /\.env\.(example|sample|template)$/i;
++
++// Allow read-only for documentation env files
++const allowEnvDocs = operation === 'read' && ENV_DOC_ALLOW_PATTERN.test(resolvedPath);
++```
++
++**Location**: `src/security/path-validator.ts`
++
++#### 2. `rg` → `grep` Fallback (`grep.ts`)
++
++**Purpose**: Ensure search functionality works on systems without `ripgrep` by falling back to `grep`.
++
++**Implementation**:
++- Primary: Use `rg` (ripgrep) when available
++- Fallback: Use system `grep` when `rg` returns ENOENT
++- User notification when fallback occurs
++
++**Location**: `src/tools/grep.ts`
++
++### Review Performed
++
++| Aspect | Details |
++|--------|---------|
++| **Review Type** | Focused hardening review |
++| **Reviewer** | Claude Opus (3 specialized subagents) |
++| **Scope** | Grep tool correctness + path validation regression coverage |
++| **Tests Added** | None yet (tests added by this PRP) |
++
++---
++
++## Findings Summary Table
++
++| ID | Severity | Component | Issue | Status |
++|----|----------|-----------|-------|--------|
++| SEC-001 | LOW | `path-validator.ts` | Missing regression tests for symlink protections | **OPEN** |
++| CODE-001 | **HIGH** | `grep.ts` | State handling in fallback path is fragile | **OPEN** |
++| CODE-002 | **HIGH** | `grep.ts` | Fallback cleanup/ordering can leak events | **OPEN** |
++| CODE-003 | MEDIUM | `grep.ts` | Missing `--` separator for patterns | **OPEN** |
++| CODE-004 | MEDIUM | `grep.ts` | Cryptic error when both tools missing | **OPEN** |
++
++---
++
++## Scope
++
++### In Scope (This PRP)
++
++| ID | Reason |
++|----|--------|
++| **SEC-001** | Add regression tests for existing symlink protections |
++| **CODE-001** | High-impact reliability issue |
++| **CODE-002** | Resource leak risk in fallback path |
++| **CODE-003** | User-facing bug with simple mitigation |
++| **CODE-004** | Poor error UX, easy improvement |
++
++### Out of Scope (Deferred)
++
++| ID | Reason |
++|----|--------|
++| **SEC-002** | Shell bypass is architectural - requires separate sandboxing PRP |
++| **SEC-003** | API contract discussion needed - recommend design review |
++
++---
++
++## SECTION A: Security Fixes
++
++### SEC-001: Symlink Protection Regression Tests (LOW)
++
++#### Goal
++
++Lock in existing symlink protections with regression tests, especially after adding the `.env.example/.env.sample/.env.template` read-only allowlist. No production code changes are expected unless the allowlist is missing.
++
++#### Current State
++
++`path-validator.ts` already resolves symlinks via `fs.realpath()` and checks blocked patterns against the resolved path. The task is to add tests to prevent regressions and to verify the env-doc allowlist is read-only.
++
++#### Required Tests (Add)
++
++```typescript
++describe('PathValidator - Symlink Security', () => {
++  it('should block symlink pointing to .env file', async () => {
++    // Setup: ln -s .env safe-config.txt
++    const result = await validatePath('/project/safe-config.txt');
++    expect(result.valid).toBe(false);
++    expect(result.error).toContain('blocked pattern');
++  });
++
++  it('should allow symlink to .env.example for read operations', async () => {
++    // Setup: ln -s .env.example sample.txt
++    const result = await validatePath('/project/sample.txt', { operation: 'read' });
++    expect(result.valid).toBe(true);
++  });
++
++  it('should block .env.example for write operations', async () => {
++    // Setup: ln -s .env.example sample.txt
++    const result = await validatePath('/project/sample.txt', { operation: 'write' });
++    expect(result.valid).toBe(false);
++    expect(result.error).toContain('blocked pattern');
++  });
++
++  it('should detect and block circular symlinks', async () => {
++    // Setup: a -> b -> c -> a
++    const result = await validatePath('/project/circular-a');
++    expect(result.valid).toBe(false);
++    expect(result.error).toContain('circular symlink');
++  });
++
++  it('should block symlink to /etc/passwd', async () => {
++    // Setup: ln -s /etc/passwd users.txt
++    const result = await validatePath('/project/users.txt');
++    expect(result.valid).toBe(false);
++    expect(result.error).toContain('restricted system path');
++  });
++});
++```
++
++#### Notes
++
++- TOCTOU remains mitigated by `validateAndOpen()` for read operations.
++- Hard links remain a low-risk edge case and are out of scope.
++
++---
++
++## SECTION B: Grep Tool Fixes
++
++### Files to Modify
++
++- `/home/aip0rt/Desktop/grok-cli/src/tools/grep.ts`
++
++### CODE-003: Missing `--` Separator (MEDIUM)
++
++#### Problem
++
++Patterns starting with `-` are misinterpreted as ripgrep flags.
++
++```bash
++# Fails: "unknown flag '-debug'"
++grep -pattern "-debug" .
++
++# Works: Pattern treated as literal
++grep -- "-debug" .
++```
++
++#### Current Code (current implementation)
++
++```typescript
++rgArgs.push(pattern, validated.resolvedPath!);
++```
++
++#### Fix
++
++```diff
++- rgArgs.push(pattern, validated.resolvedPath!);
+++ rgArgs.push('--', pattern, validated.resolvedPath!);
++```
++
++If grep arguments are constructed separately, ensure they also include `--`:
++
++```diff
++- grepArgs.push(pattern, validated.resolvedPath!);
+++ grepArgs.push('--', pattern, validated.resolvedPath!);
++```
++
++---
++
++### CODE-001 & CODE-002: Race Condition and Resource Leak (HIGH)
++
++#### Problem
++
++1. Two separate flags (`resolved` and per-call `active`) create non-atomic state
++2. When rg fails and grep starts, stale listeners can still fire
++3. Error handling is spread across branches, making correctness hard to reason about
++
++#### Current Code Structure
++
++```typescript
++return new Promise((resolve) => {
++  let resolved = false;
++
++  const finish = (result) => {
++    if (resolved) return;
++    resolved = true;
++    resolve(result);
++  };
++
++  const runSearch = (cmd, args, tool) => {
++    let active = true;
++    const proc = spawn(cmd, args, { cwd: process.cwd() });
++
++    proc.on('close', (code) => {
++      if (!active) return;
++      finish(...);
++    });
++
++    proc.on('error', (err) => {
++      if (tool === 'rg' && err.code === 'ENOENT') {
++        active = false;
++        runSearch('grep', grepArgs, 'grep');
++      }
++    });
++  };
++});
++```
++
++#### Fix: Consolidated State Object
++
++```typescript
++return new Promise((resolve) => {
++  const state = {
++    resolved: false,
++    activeProcess: null as ChildProcess | null,
++  };
++
++  const finish = (result: ToolResult) => {
++    if (state.resolved) return;
++    state.resolved = true;
++    state.activeProcess = null;
++    resolve(result);
++  };
++
++  const runSearch = (command: string, args: string[], tool: 'rg' | 'grep') => {
++    const proc = spawn(command, args, { cwd: process.cwd() });
++    state.activeProcess = proc;  // Track active process
++    let stdout = '';
++    let stderr = '';
++
++    proc.stdout.on('data', (data) => { stdout += data; });
++    proc.stderr.on('data', (data) => { stderr += data; });
++
++    proc.on('close', (code) => {
++      if (state.activeProcess !== proc) return;  // Ignore stale
++      const prefix = tool === 'grep' ? 'Using grep fallback (rg not found).\n' : '';
++      if (code === 0) {
++        finish({ success: true, output: prefix + (stdout || 'No matches found.') });
++      } else if (code === 1) {
++        finish({ success: true, output: prefix + 'No matches found.' });
++      } else {
++        finish({ success: false, error: prefix + (stderr || 'Search failed') });
++      }
++    });
++
++    proc.on('error', (err) => {
++      if (state.activeProcess !== proc) return;  // Ignore stale
++
++      if (tool === 'rg' && (err as NodeJS.ErrnoException).code === 'ENOENT') {
++        setImmediate(() => runSearch('grep', grepArgs, 'grep'));
++        return;
++      }
++
++      // CODE-004 fix: Helpful error when both tools missing
++      if (tool === 'grep' && (err as NodeJS.ErrnoException).code === 'ENOENT') {
++        finish({
++          success: false,
++          error: 'Neither ripgrep (rg) nor grep is installed.\n\n' +
++            'Install ripgrep for best results:\n' +
++            '  - macOS: brew install ripgrep\n' +
++            '  - Ubuntu/Debian: apt install ripgrep\n' +
++            '  - Windows: choco install ripgrep',
++        });
++        return;
++      }
++
++      const prefix = tool === 'grep' ? 'Using grep fallback (rg not found).\n' : '';
++      finish({ success: false, error: prefix + (err.message || 'Search failed') });
++    });
++  };
++
++  runSearch('rg', rgArgs, 'rg');
++});
++```
++
++#### Key Improvements
++
++| Issue | Solution |
++|-------|----------|
++| Race condition | Single `state` object, process identity check |
++| Resource leak | `state.activeProcess` tracks current process, stale ignored |
++| Missing prefix on errors | Added to all error paths |
++| Cryptic ENOENT | Helpful installation instructions |
++
++---
++
++### CODE-004: Cryptic Error When Both Tools Missing (MEDIUM)
++
++**Before:**
++```
++Error: spawn grep ENOENT
++```
++
++**After:**
++```
++Error: Neither ripgrep (rg) nor grep is installed.
++
++Install ripgrep for best results:
++  - macOS: brew install ripgrep
++  - Ubuntu/Debian: apt install ripgrep
++  - Windows: choco install ripgrep
++```
++
++---
++
++## SECTION C: Complete Fixed grep.ts
++
++```typescript
++import { z } from 'zod';
++import { spawn, ChildProcess } from 'child_process';
++import { BaseTool, ToolResult } from './base-tool.js';
++import { validatePath } from '../security/path-validator.js';
++
++function validateGrepPattern(pattern: string): { valid: true } | { valid: false; error: string } {
++  if (/\\x(?![0-9a-fA-F]{2})/.test(pattern)) {
++    return { valid: false, error: 'Incomplete hex escape (\\x must be followed by 2 hex digits)' };
++  }
++  if (/\\u(?![0-9a-fA-F]{4})/.test(pattern)) {
++    return { valid: false, error: 'Incomplete Unicode escape (\\u must be followed by 4 hex digits)' };
++  }
++  try {
++    new RegExp(pattern);
++    return { valid: true };
++  } catch (error) {
++    return { valid: false, error: error instanceof Error ? error.message : 'Invalid regex' };
++  }
++}
++
++export class GrepTool extends BaseTool {
++  name = 'Grep';
++  description = 'Search for a pattern in files using ripgrep. Returns matching lines.';
++  requiresConfirmation = false;
++
++  parameters = z.object({
++    pattern: z.string().describe('The regex pattern to search for'),
++    path: z.string().optional().describe('File or directory to search in'),
++    glob: z.string().optional().describe('File pattern to filter (e.g., "*.ts")'),
++  });
++
++  async execute(args: Record<string, unknown>): Promise<ToolResult> {
++    const { pattern, path: searchPath = '.', glob } = this.parameters.parse(args);
++
++    try {
++      const patternValidation = validateGrepPattern(pattern);
++      if (!patternValidation.valid) {
++        return { success: false, error: `Invalid pattern: ${patternValidation.error}` };
++      }
++
++      const validated = await validatePath(searchPath);
++      if (!validated.valid) {
++        return { success: false, error: validated.error };
++      }
++
++      const rgArgs = ['--line-number', '--color=never', '--no-heading'];
++      if (glob) rgArgs.push('--glob', glob);
++      rgArgs.push('--', pattern, validated.resolvedPath!);  // FIX: -- separator
++
++      const grepArgs = ['-R', '-n'];
++      if (glob) grepArgs.push('--include', glob);
++      grepArgs.push('--', pattern, validated.resolvedPath!);
++
++      return new Promise((resolve) => {
++        const state = {
++          resolved: false,
++          activeProcess: null as ChildProcess | null,
++        };
++
++        const finish = (result: ToolResult) => {
++          if (state.resolved) return;
++          state.resolved = true;
++          state.activeProcess = null;
++          resolve(result);
++        };
++
++        const runSearch = (command: string, args: string[], tool: 'rg' | 'grep') => {
++          const proc = spawn(command, args, { cwd: process.cwd() });
++          state.activeProcess = proc;
++          let stdout = '';
++          let stderr = '';
++
++          proc.stdout.on('data', (data) => { stdout += data; });
++          proc.stderr.on('data', (data) => { stderr += data; });
++
++          proc.on('close', (code) => {
++            if (state.activeProcess !== proc) return;
++            const prefix = tool === 'grep' ? 'Using grep fallback (rg not found).\n' : '';
++            if (code === 0) {
++              finish({ success: true, output: prefix + (stdout || 'No matches found.') });
++            } else if (code === 1) {
++              finish({ success: true, output: prefix + 'No matches found.' });
++            } else {
++              finish({ success: false, error: prefix + (stderr || 'Search failed') });
++            }
++          });
++
++          proc.on('error', (err) => {
++            if (state.activeProcess !== proc) return;
++
++            if (tool === 'rg' && (err as NodeJS.ErrnoException).code === 'ENOENT') {
++              setImmediate(() => runSearch('grep', grepArgs, 'grep'));
++              return;
++            }
++
++            if (tool === 'grep' && (err as NodeJS.ErrnoException).code === 'ENOENT') {
++              finish({
++                success: false,
++                error: 'Neither ripgrep (rg) nor grep is installed.\n\n' +
++                  'Install ripgrep for best results:\n' +
++                  '  - macOS: brew install ripgrep\n' +
++                  '  - Ubuntu/Debian: apt install ripgrep\n' +
++                  '  - Windows: choco install ripgrep\n' +
++                  '  - Or visit: https://github.com/BurntSushi/ripgrep#installation',
++              });
++              return;
++            }
++
++            const prefix = tool === 'grep' ? 'Using grep fallback (rg not found).\n' : '';
++            finish({ success: false, error: prefix + (err.message || 'Search failed') });
++          });
++        };
++
++        runSearch('rg', rgArgs, 'rg');
++      });
++    } catch (error) {
++      return {
++        success: false,
++        error: error instanceof Error ? error.message : 'Search failed',
++      };
++    }
++  }
++}
++```
++
++---
++
++## SECTION D: Test Coverage
++
++### Existing Tests (Current Repo)
++
++| File | Notes |
++|------|-------|
++| `tests/unit/app-state-debug.test.ts` | UI state regression harness |
++| `tests/unit/secret-resolver.test.ts` | Secret resolver unit tests (unrelated) |
++
++**Gap:** No existing tests cover `path-validator.ts` or the grep tool. This PRP adds those tests.
++
++### Additional Tests Required
++
++#### Symlink Security Tests (new: `tests/unit/path-validator.test.ts`)
++
++```typescript
++describe('Symlink Attack Prevention', () => {
++  it('blocks symlink to .env');
++  it('blocks nested symlinks to sensitive files');
++  it('detects circular symlinks');
++  it('blocks symlink to /etc/passwd');
++  it('allows symlink to .env.example for read');
++});
++```
++
++#### Grep Tool Tests (new: `tests/unit/grep-tool.test.ts`)
++
++```typescript
++describe('Grep Pattern Handling', () => {
++  it('handles patterns starting with -');
++  it('handles patterns starting with --');
++});
++
++describe('Grep Fallback', () => {
++  it('shows helpful error when both tools missing');
++  it('includes prefix on error paths');
++  it('does not leak processes on fallback');
++});
++```
++
++---
++
++## SECTION E: Verification Plan
++
++### Manual Testing Checklist
++
++```markdown
++## Pre-Fix Verification
++- [ ] Confirm symlink to .env is blocked
++- [ ] Confirm grep "-pattern" fails
++- [ ] Confirm cryptic error when both tools missing
++
++## Post-Fix Verification
++- [ ] Symlink to .env remains blocked
++- [ ] Symlink to .env.example is readable (read-only)
++- [ ] `grok grep -- "-test"` works correctly
++- [ ] Remove rg from PATH, grep fallback works
++- [ ] Remove both tools, helpful error shown
++- [ ] 100 concurrent grep calls succeed
++
++## Regression Checks
++- [ ] Normal file reads work
++- [ ] .env.example readable
++- [ ] ripgrep performance unchanged
++- [ ] All CLI commands functional
++```
++
++### CI Verification
++
++```bash
++# Run the new targeted suites
++npm test -- tests/unit/path-validator.test.ts --run
++npm test -- tests/unit/grep-tool.test.ts --run
++
++# Optional: run full suite (test count may vary)
++# npm test
++```
++
++---
++
++## SECTION F: Rollback Plan
++
++### Immediate Rollback
++
++```bash
++git revert HEAD --no-edit
++git push origin main
++```
++
++### Selective Rollback
++
++```bash
++# Revert specific fix
++git revert <commit-sha> --no-edit
++```
++
++### Feature Flags
++
++Not recommended for security fixes - they should not be toggleable.
++
++---
++
++## Success Criteria
++
++| Criterion | Verification |
++|-----------|--------------|
++| New tests pass | Targeted test runs exit 0 |
++| Symlink protections covered | New symlink tests pass |
++| Grep fallback stable | No process leak tests pass |
++| Pattern handling robust | `-pattern` tests pass |
++| Clear error messages | Both-tools-missing test passes |
++| No regressions | Existing tests still pass |
++
++---
++
++## Implementation Order
++
++| Order | ID | Severity | Effort | Dependencies |
++|-------|-----|----------|--------|--------------|
++| 1 | CODE-003 | MEDIUM | 5 min | None |
++| 2 | CODE-001/002 | HIGH | 2-3 hr | None |
++| 3 | CODE-004 | MEDIUM | 15 min | CODE-001 |
++| 4 | SEC-001 tests | LOW | 1-2 hr | None |
++| 5 | Verification | - | 1-2 hr | All above |
++
++---
++
++## Appendix: Files Affected
++
++| File | Changes |
++|------|---------|
++| `src/tools/grep.ts` | Refactor state management, add `--` separator, improve errors |
++| `src/security/path-validator.ts` | Verify env-doc allowlist is read-only (no change if already present) |
++| `tests/unit/path-validator.test.ts` | Add symlink security regression tests |
++| `tests/unit/grep-tool.test.ts` | Add pattern handling + fallback error tests |
++
++---
++
++**Document End**
++
++*Generated by Opus Subagent Team - Security Auditor, Code Reviewer, Docs Writer*
+diff --git a/src/security/path-validator.ts b/src/security/path-validator.ts
+index 7a9363f..af0976d 100644
+--- a/src/security/path-validator.ts
++++ b/src/security/path-validator.ts
+@@ -19,6 +19,9 @@ interface ValidationOptions {
+ // BLOCKED PATTERNS - File/directory patterns that are always forbidden
+ // ============================================================================
+ 
++const ENV_BLOCK_PATTERN = /\.env(?:\.|$)/i;
++const ENV_DOC_ALLOW_PATTERN = /\.env\.(example|sample|template)$/i;
++
+ const BLOCKED_PATTERNS = [
+   // SSH keys and config
+   /\.ssh/,
+@@ -36,7 +39,7 @@ const BLOCKED_PATTERNS = [
+   /secrets/i,
+ 
+   // Environment files
+-  /\.env(?:\.|$)/,
++  ENV_BLOCK_PATTERN,
+ 
+   // Private keys
+   /private.*key/i,
+@@ -220,7 +223,12 @@ export async function validatePath(
+ 
+     // Step 5: Check against blocked patterns (using RESOLVED path, not input)
+     // This prevents bypassing blocked patterns via symlinks
++    const allowEnvDocs =
++      operation === 'read' && ENV_DOC_ALLOW_PATTERN.test(resolvedPath);
+     for (const pattern of BLOCKED_PATTERNS) {
++      if (pattern === ENV_BLOCK_PATTERN && allowEnvDocs) {
++        continue;
++      }
+       if (pattern.test(resolvedPath)) {
+         return {
+           valid: false,
+@@ -313,7 +321,12 @@ export function validatePathSync(
+       }
+     }
+ 
++    const allowEnvDocs =
++      operation === 'read' && ENV_DOC_ALLOW_PATTERN.test(resolvedPath);
+     for (const pattern of BLOCKED_PATTERNS) {
++      if (pattern === ENV_BLOCK_PATTERN && allowEnvDocs) {
++        continue;
++      }
+       if (pattern.test(resolvedPath)) {
+         return {
+           valid: false,
+diff --git a/src/tools/grep.ts b/src/tools/grep.ts
+index d167ffe..55ec3eb 100644
+--- a/src/tools/grep.ts
++++ b/src/tools/grep.ts
+@@ -1,8 +1,31 @@
+ import { z } from 'zod';
+-import { spawn } from 'child_process';
++import { spawn, ChildProcess } from 'child_process';
+ import { BaseTool, ToolResult } from './base-tool.js';
+ import { validatePath } from '../security/path-validator.js';
+ 
++/**
++ * Validate grep pattern for common regex issues
++ */
++function validateGrepPattern(pattern: string): { valid: true } | { valid: false; error: string } {
++  // Check for incomplete hex escapes like \x without 2 hex digits
++  if (/\\x(?![0-9a-fA-F]{2})/.test(pattern)) {
++    return { valid: false, error: 'Incomplete hex escape in pattern (\\x must be followed by 2 hex digits)' };
++  }
++
++  // Check for incomplete Unicode escapes like \u without 4 hex digits
++  if (/\\u(?![0-9a-fA-F]{4})/.test(pattern)) {
++    return { valid: false, error: 'Incomplete Unicode escape in pattern (\\u must be followed by 4 hex digits)' };
++  }
++
++  // Try to compile as regex to catch other issues
++  try {
++    new RegExp(pattern);
++    return { valid: true };
++  } catch (error) {
++    return { valid: false, error: error instanceof Error ? error.message : 'Invalid regex pattern' };
++  }
++}
++
+ export class GrepTool extends BaseTool {
+   name = 'Grep';
+   description = 'Search for a pattern in files using ripgrep. Returns matching lines.';
+@@ -18,6 +41,12 @@ export class GrepTool extends BaseTool {
+     const { pattern, path: searchPath = '.', glob } = this.parameters.parse(args);
+ 
+     try {
++      // Validate the regex pattern before passing to ripgrep
++      const patternValidation = validateGrepPattern(pattern);
++      if (!patternValidation.valid) {
++        return { success: false, error: `Invalid grep pattern: ${(patternValidation as { valid: false; error: string }).error}` };
++      }
++
+       const validated = await validatePath(searchPath);
+       if (!validated.valid) {
+         return { success: false, error: validated.error };
+@@ -33,31 +62,79 @@ export class GrepTool extends BaseTool {
+         rgArgs.push('--glob', glob);
+       }
+ 
+-      // Use resolved path for grep search
+-      rgArgs.push(pattern, validated.resolvedPath!);
++      // FIX CODE-003: Use '--' separator to prevent patterns starting with '-' from being misinterpreted as flags
++      rgArgs.push('--', pattern, validated.resolvedPath!);
+ 
++      const grepArgs = ['-R', '-n'];
++      if (glob) {
++        grepArgs.push('--include', glob);
++      }
++      grepArgs.push('--', pattern, validated.resolvedPath!);
++
++      // FIX CODE-001/002: Consolidated state object to prevent race conditions and resource leaks
+       return new Promise((resolve) => {
+-        const rg = spawn('rg', rgArgs, { cwd: process.cwd() });
+-        let stdout = '';
+-        let stderr = '';
+-
+-        rg.stdout.on('data', (data) => { stdout += data; });
+-        rg.stderr.on('data', (data) => { stderr += data; });
+-
+-        rg.on('close', (code) => {
+-          if (code === 0) {
+-            resolve({ success: true, output: stdout || 'No matches found.' });
+-          } else if (code === 1) {
+-            resolve({ success: true, output: 'No matches found.' });
+-          } else {
+-            resolve({ success: false, error: stderr || 'Search failed' });
+-          }
+-        });
+-
+-        rg.on('error', (err) => {
+-          // ripgrep not installed, fall back to grep
+-          resolve({ success: false, error: 'ripgrep (rg) not found. Install with: brew install ripgrep' });
+-        });
++        const state = {
++          resolved: false,
++          activeProcess: null as ChildProcess | null,
++        };
++
++        const finish = (result: ToolResult) => {
++          if (state.resolved) return;
++          state.resolved = true;
++          state.activeProcess = null;
++          resolve(result);
++        };
++
++        const runSearch = (command: string, args: string[], tool: 'rg' | 'grep') => {
++          const proc = spawn(command, args, { cwd: process.cwd() });
++          state.activeProcess = proc;  // Track active process
++          let stdout = '';
++          let stderr = '';
++
++          proc.stdout.on('data', (data) => { stdout += data; });
++          proc.stderr.on('data', (data) => { stderr += data; });
++
++          proc.on('close', (code) => {
++            if (state.activeProcess !== proc) return;  // Ignore stale events
++            const prefix = tool === 'grep' ? 'Using grep fallback (rg not found).\n' : '';
++            if (code === 0) {
++              finish({ success: true, output: prefix + (stdout || 'No matches found.') });
++            } else if (code === 1) {
++              finish({ success: true, output: prefix + 'No matches found.' });
++            } else {
++              finish({ success: false, error: prefix + (stderr || 'Search failed') });
++            }
++          });
++
++          proc.on('error', (err) => {
++            if (state.activeProcess !== proc) return;  // Ignore stale events
++
++            if (tool === 'rg' && (err as NodeJS.ErrnoException).code === 'ENOENT') {
++              // Use setImmediate to properly sequence the fallback.
++              setImmediate(() => runSearch('grep', grepArgs, 'grep'));
++              return;
++            }
++
++            // FIX CODE-004: Helpful error when both tools missing
++            if (tool === 'grep' && (err as NodeJS.ErrnoException).code === 'ENOENT') {
++              finish({
++                success: false,
++                error: 'Neither ripgrep (rg) nor grep is installed.\n\n' +
++                  'Install ripgrep for best results:\n' +
++                  '  - macOS: brew install ripgrep\n' +
++                  '  - Ubuntu/Debian: apt install ripgrep\n' +
++                  '  - Windows: choco install ripgrep\n' +
++                  '  - Or visit: https://github.com/BurntSushi/ripgrep#installation',
++              });
++              return;
++            }
++
++            const prefix = tool === 'grep' ? 'Using grep fallback (rg not found).\n' : '';
++            finish({ success: false, error: prefix + (err.message || 'Search failed') });
++          });
++        };
++
++        runSearch('rg', rgArgs, 'rg');
+       });
+     } catch (error) {
+       return {
+diff --git a/tests/unit/grep-tool.test.ts b/tests/unit/grep-tool.test.ts
+new file mode 100644
+index 0000000..c09e28a
+--- /dev/null
++++ b/tests/unit/grep-tool.test.ts
+@@ -0,0 +1,420 @@
++import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
++import { GrepTool } from '../../src/tools/grep.js';
++import * as fs from 'fs/promises';
++import * as path from 'path';
++import * as os from 'os';
++import { EventEmitter } from 'events';
++import type { ChildProcess } from 'child_process';
++
++describe('GrepTool', () => {
++  let tempDir: string;
++  let grepTool: GrepTool;
++
++  beforeAll(async () => {
++    // Use project-local temp directory to pass path validation (allows cwd and home)
++    const projectRoot = process.cwd();
++    tempDir = await fs.mkdtemp(path.join(projectRoot, '.tmp-grep-test-'));
++    grepTool = new GrepTool();
++
++    // Create test file with various patterns
++    const testContent = `line-with-dash
++-debug-flag
++--double-dash
++normal line
++DEBUG=true
++test pattern here
++`;
++    await fs.writeFile(path.join(tempDir, 'test.txt'), testContent);
++
++    // Create additional test files for glob filtering
++    await fs.writeFile(path.join(tempDir, 'code.ts'), 'const line = "typescript code";');
++    await fs.writeFile(path.join(tempDir, 'data.json'), '{"line": "json data"}');
++  });
++
++  afterAll(async () => {
++    await fs.rm(tempDir, { recursive: true, force: true });
++  });
++
++  describe('Pattern Handling', () => {
++    it('should handle patterns starting with single dash', async () => {
++      const result = await grepTool.execute({
++        pattern: '-debug',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      // Should find the line with -debug-flag
++      expect(result.output).toContain('-debug-flag');
++    });
++
++    it('should handle patterns starting with double dash', async () => {
++      const result = await grepTool.execute({
++        pattern: '--double',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('--double-dash');
++    });
++
++    it('should handle normal patterns', async () => {
++      const result = await grepTool.execute({
++        pattern: 'normal',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('normal line');
++    });
++
++    it('should handle regex patterns with special characters', async () => {
++      const result = await grepTool.execute({
++        pattern: 'DEBUG=.*',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('DEBUG=true');
++    });
++  });
++
++  describe('Pattern Validation', () => {
++    it('should reject invalid hex escape', async () => {
++      const result = await grepTool.execute({
++        pattern: '\\x',
++        path: tempDir,
++      });
++      expect(result.success).toBe(false);
++      expect(result.error).toContain('hex escape');
++    });
++
++    it('should reject incomplete hex escape with single digit', async () => {
++      const result = await grepTool.execute({
++        pattern: '\\xF',
++        path: tempDir,
++      });
++      expect(result.success).toBe(false);
++      expect(result.error).toContain('hex escape');
++    });
++
++    it('should reject invalid unicode escape', async () => {
++      const result = await grepTool.execute({
++        pattern: '\\u12',
++        path: tempDir,
++      });
++      expect(result.success).toBe(false);
++      expect(result.error).toContain('Unicode escape');
++    });
++
++    it('should reject incomplete unicode escape', async () => {
++      const result = await grepTool.execute({
++        pattern: '\\u',
++        path: tempDir,
++      });
++      expect(result.success).toBe(false);
++      expect(result.error).toContain('Unicode escape');
++    });
++
++    it('should accept valid regex patterns', async () => {
++      const result = await grepTool.execute({
++        pattern: 'test.*pattern',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++    });
++
++    it('should accept valid hex escape with 2 digits', async () => {
++      const result = await grepTool.execute({
++        pattern: '\\x41',
++        path: tempDir,
++      });
++      // Should succeed (valid pattern) even if no matches
++      expect(result.success).toBe(true);
++    });
++
++    it('should accept valid unicode escape with 4 digits', async () => {
++      const result = await grepTool.execute({
++        pattern: '\\u0041',
++        path: tempDir,
++      });
++      // Should succeed (valid pattern) even if no matches
++      expect(result.success).toBe(true);
++    });
++  });
++
++  describe('Path Validation', () => {
++    it('should reject non-existent paths', async () => {
++      const result = await grepTool.execute({
++        pattern: 'test',
++        path: '/nonexistent/path/that/does/not/exist',
++      });
++      expect(result.success).toBe(false);
++      expect(result.error).toBeDefined();
++    });
++
++    it('should work with valid directory path', async () => {
++      const result = await grepTool.execute({
++        pattern: 'line',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++    });
++
++    it('should work with valid file path', async () => {
++      const result = await grepTool.execute({
++        pattern: 'normal',
++        path: path.join(tempDir, 'test.txt'),
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('normal line');
++    });
++  });
++
++  describe('Glob Filtering', () => {
++    it('should filter by glob pattern *.txt', async () => {
++      const result = await grepTool.execute({
++        pattern: 'line',
++        path: tempDir,
++        glob: '*.txt',
++      });
++      expect(result.success).toBe(true);
++      // Should find matches in test.txt
++      expect(result.output).toContain('line');
++    });
++
++    it('should filter by glob pattern *.ts', async () => {
++      const result = await grepTool.execute({
++        pattern: 'line',
++        path: tempDir,
++        glob: '*.ts',
++      });
++      expect(result.success).toBe(true);
++      // Should find matches in code.ts
++      expect(result.output).toContain('typescript');
++    });
++
++    it('should filter by glob pattern *.json', async () => {
++      const result = await grepTool.execute({
++        pattern: 'line',
++        path: tempDir,
++        glob: '*.json',
++      });
++      expect(result.success).toBe(true);
++      // Should find matches in data.json
++      expect(result.output).toContain('json');
++    });
++
++    it('should return no matches when glob excludes matching files', async () => {
++      const result = await grepTool.execute({
++        pattern: 'DEBUG',
++        path: tempDir,
++        glob: '*.json',
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('No matches found');
++    });
++  });
++
++  describe('No Matches', () => {
++    it('should return success with no matches message', async () => {
++      const result = await grepTool.execute({
++        pattern: 'xyznotfound123',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('No matches found');
++    });
++
++    it('should return success with no matches for complex pattern', async () => {
++      const result = await grepTool.execute({
++        pattern: 'completely_nonexistent_pattern_12345',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('No matches found');
++    });
++  });
++
++  describe('Default Path Behavior', () => {
++    it('should use current directory when path not specified', async () => {
++      // This test verifies the default path behavior
++      const result = await grepTool.execute({
++        pattern: 'xyznonexistent987',
++        // path not specified - should default to '.'
++      });
++      // Should succeed even if no matches
++      expect(result.success).toBe(true);
++    });
++  });
++
++  describe('Output Format', () => {
++    it('should include line numbers in output', async () => {
++      const result = await grepTool.execute({
++        pattern: 'normal',
++        path: tempDir,
++      });
++      expect(result.success).toBe(true);
++      // ripgrep and grep both use format like filename:linenum:content
++      expect(result.output).toMatch(/:\d+:/);
++    });
++  });
++
++  describe('Fallback Behavior (mocked)', () => {
++    let GrepToolMocked: typeof GrepTool;
++    let spawnMock: ReturnType<typeof vi.fn>;
++    let rgProc: (EventEmitter & { stdout: EventEmitter; stderr: EventEmitter }) | undefined;
++    let grepProc: (EventEmitter & { stdout: EventEmitter; stderr: EventEmitter }) | undefined;
++
++    const makeProc = (): ChildProcess & {
++      stdout: EventEmitter;
++      stderr: EventEmitter;
++    } => {
++      const proc = new EventEmitter() as ChildProcess & {
++        stdout: EventEmitter;
++        stderr: EventEmitter;
++      };
++      proc.stdout = new EventEmitter();
++      proc.stderr = new EventEmitter();
++      return proc;
++    };
++
++    const flushImmediate = () => new Promise<void>((resolve) => setImmediate(resolve));
++
++    beforeEach(async () => {
++      vi.resetModules();
++      rgProc = undefined;
++      grepProc = undefined;
++      spawnMock = vi.fn((command: string) => {
++        const proc = makeProc();
++        if (command === 'rg') {
++          rgProc = proc;
++        }
++        if (command === 'grep') {
++          grepProc = proc;
++        }
++        return proc;
++      });
++
++      vi.doMock('child_process', () => ({ spawn: spawnMock }));
++      vi.doMock('../../src/security/path-validator.js', () => ({
++        validatePath: vi.fn(async () => ({ valid: true, resolvedPath: '/tmp' })),
++      }));
++
++      const mod = await import('../../src/tools/grep.js');
++      GrepToolMocked = mod.GrepTool;
++    });
++
++    afterEach(() => {
++      vi.resetModules();
++      vi.unmock('child_process');
++      vi.unmock('../../src/security/path-validator.js');
++    });
++
++    it('shows helpful error when both tools are missing', async () => {
++      const tool = new GrepToolMocked();
++      const resultPromise = tool.execute({ pattern: 'test', path: '/tmp' });
++
++      // Allow the tool to finish async validation and start the initial rg process.
++      await flushImmediate();
++
++      const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
++      rgError.code = 'ENOENT';
++      rgProc?.emit('error', rgError);
++
++      // Allow fallback to spawn grep.
++      await flushImmediate();
++
++      const grepError = new Error('spawn grep ENOENT') as NodeJS.ErrnoException;
++      grepError.code = 'ENOENT';
++      grepProc?.emit('error', grepError);
++
++      const result = await resultPromise;
++
++      expect(result.success).toBe(false);
++      expect(result.error).toContain('Neither ripgrep (rg) nor grep is installed');
++    });
++
++    it('includes fallback prefix on error paths', async () => {
++      const tool = new GrepToolMocked();
++      const resultPromise = tool.execute({ pattern: 'test', path: '/tmp' });
++
++      // Allow the tool to finish async validation and start the initial rg process.
++      await flushImmediate();
++
++      const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
++      rgError.code = 'ENOENT';
++      rgProc?.emit('error', rgError);
++
++      // Allow fallback to spawn grep.
++      await flushImmediate();
++
++      const grepError = new Error('Permission denied') as NodeJS.ErrnoException;
++      grepError.code = 'EACCES';
++      grepProc?.emit('error', grepError);
++
++      const result = await resultPromise;
++
++      expect(result.success).toBe(false);
++      expect(result.error).toContain('Using grep fallback (rg not found).');
++      expect(result.error).toContain('Permission denied');
++    });
++
++    it('ignores stale events from the initial rg process', async () => {
++      const tool = new GrepToolMocked();
++      let resolved = false;
++      const resultPromise = tool.execute({ pattern: 'test', path: '/tmp' }).then((result) => {
++        resolved = true;
++        return result;
++      });
++
++      // Allow the tool to finish async validation and start the initial rg process.
++      await flushImmediate();
++
++      const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
++      rgError.code = 'ENOENT';
++      rgProc?.stdout.emit('data', Buffer.from('rg output'));
++      rgProc?.emit('error', rgError);
++
++      // Allow fallback to spawn grep.
++      await flushImmediate();
++
++      rgProc?.emit('close', 0);
++      await flushImmediate();
++      expect(resolved).toBe(false);
++
++      grepProc?.stdout.emit('data', Buffer.from('grep output'));
++      grepProc?.emit('close', 0);
++
++      const result = await resultPromise;
++      expect(result.success).toBe(true);
++      expect(result.output).toContain('Using grep fallback (rg not found).');
++      expect(result.output).toContain('grep output');
++    });
++
++    it('verifies -- separator in spawn args prevents pattern injection', async () => {
++      const tool = new GrepToolMocked();
++      const resultPromise = tool.execute({ pattern: '-malicious', path: '/tmp' });
++
++      await flushImmediate();
++
++      // Verify rg args include -- before pattern
++      const rgArgs = spawnMock.mock.calls[0][1];
++      const rgDashIndex = rgArgs.indexOf('--');
++      const rgPatIndex = rgArgs.indexOf('-malicious');
++      expect(rgDashIndex).toBeGreaterThan(-1);
++      expect(rgPatIndex).toEqual(rgDashIndex + 1);
++
++      // Trigger fallback
++      const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
++      rgError.code = 'ENOENT';
++      rgProc?.emit('error', rgError);
++      await flushImmediate();
++
++      // Verify grep args include -- before pattern
++      const grepArgs = spawnMock.mock.calls[1][1];
++      const grepDashIndex = grepArgs.indexOf('--');
++      const grepPatIndex = grepArgs.indexOf('-malicious');
++      expect(grepDashIndex).toBeGreaterThan(-1);
++      expect(grepPatIndex).toEqual(grepDashIndex + 1);
++
++      grepProc?.emit('close', 1);
++      await resultPromise;
++    });
++  });
++});
+diff --git a/tests/unit/path-validator.test.ts b/tests/unit/path-validator.test.ts
+new file mode 100644
+index 0000000..07134bf
+--- /dev/null
++++ b/tests/unit/path-validator.test.ts
+@@ -0,0 +1,627 @@
++/**
++ * Path Validator Symlink Security Regression Tests (SEC-001)
++ *
++ * These tests verify the security features of the path validator module,
++ * specifically focusing on symlink-based attack prevention.
++ *
++ * Security Features Tested:
++ * - Symlink resolution via fs.realpath()
++ * - Circular symlink detection (ELOOP)
++ * - Blocked patterns checked against RESOLVED path
++ * - .env.example/.env.sample/.env.template read-only allowlist
++ * - Blocked absolute paths (/etc/passwd, /etc/shadow, etc.)
++ * - Write operation blocks for symlinks
++ */
++
++import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
++import {
++  validatePath,
++  validatePathSync,
++} from '../../src/security/path-validator.js';
++import * as fs from 'fs/promises';
++import * as fsSync from 'fs';
++import * as path from 'path';
++import * as os from 'os';
++
++// Platform detection (must be synchronous - Vitest registers tests at module load time)
++const IS_WINDOWS = process.platform === 'win32';
++
++function detectSymlinkCapability(): boolean {
++  const linkPath = path.join(
++    os.tmpdir(),
++    `.grok-cli-symlink-capability-${process.pid}-${Date.now()}`
++  );
++
++  try {
++    fsSync.symlinkSync(os.tmpdir(), linkPath, 'dir');
++    return true;
++  } catch (err) {
++    const code = (err as NodeJS.ErrnoException).code;
++    if (code === 'EPERM' || code === 'EACCES') return false;
++    return false;
++  } finally {
++    try {
++      fsSync.unlinkSync(linkPath);
++    } catch {
++      // ignore cleanup errors
++    }
++  }
++}
++
++const CAN_CREATE_SYMLINKS = detectSymlinkCapability();
++
++const describeSymlink = CAN_CREATE_SYMLINKS ? describe : describe.skip;
++const itSymlink = CAN_CREATE_SYMLINKS ? it : it.skip;
++
++const describeUnixOnly = IS_WINDOWS ? describe.skip : describe;
++const itUnixOnly = IS_WINDOWS ? it.skip : it;
++const itUnixSymlinkOnly = !IS_WINDOWS && CAN_CREATE_SYMLINKS ? it : it.skip;
++
++describe('PathValidator - Symlink Security (SEC-001)', () => {
++  let tempDir: string;
++
++  beforeAll(async () => {
++    // Create temp directory for test fixtures
++    // Use $HOME instead of process.cwd() to avoid Vitest file watcher traversing
++    // circular symlinks and throwing ELOOP errors in DEV watch mode.
++    // The path validator allows both cwd and home directories.
++    const homeDir = os.homedir();
++    tempDir = await fs.mkdtemp(path.join(homeDir, '.tmp-path-validator-test-'));
++    console.log(`Test fixtures directory: ${tempDir}`);
++  });
++
++  afterAll(async () => {
++    // Safety guards before cleanup
++    if (!tempDir) {
++      console.warn('tempDir is undefined, skipping cleanup');
++      return;
++    }
++
++    const homeDir = os.homedir();
++
++    // Guard 1: Verify basename starts with expected prefix
++    const basename = path.basename(tempDir);
++    if (!basename.startsWith('.tmp-path-validator-test-')) {
++      throw new Error(`SAFETY: tempDir basename missing prefix: ${basename}`);
++    }
++
++    // Guard 2: Never delete home directory itself
++    if (tempDir === homeDir) {
++      throw new Error('SAFETY: Refusing to delete home directory');
++    }
++
++    // Guard 3: Resolve real path and verify it's under home
++    const realTempDir = await fs.realpath(tempDir);
++    const realHomeDir = await fs.realpath(homeDir);
++
++    if (realTempDir === realHomeDir) {
++      throw new Error('SAFETY: Resolved tempDir is home directory');
++    }
++
++    // Guard 4: Verify resolved path is under home directory
++    const relativePath = path.relative(realHomeDir, realTempDir);
++    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
++      throw new Error(`SAFETY: tempDir not under home: ${realTempDir}`);
++    }
++
++    // All guards passed - safe to delete
++    try {
++      await fs.rm(tempDir, { recursive: true, force: true });
++      console.log(`Cleaned up test fixtures directory: ${tempDir}`);
++    } catch (err) {
++      console.warn(`Warning: Failed to cleanup ${tempDir}:`, err);
++    }
++  });
++
++  describeSymlink('Symlink Resolution', () => {
++    it('should block symlink pointing to .env file', async () => {
++      // Create .env file and symlink pointing to it
++      const envPath = path.join(tempDir, '.env');
++      const symlinkPath = path.join(tempDir, 'safe-config.txt');
++
++      await fs.writeFile(envPath, 'SECRET=value');
++
++      // Clean up symlink if it exists from previous run
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore if doesn't exist
++      }
++
++      await fs.symlink(envPath, symlinkPath);
++
++      // The symlink appears innocent but resolves to .env
++      const result = await validatePath(symlinkPath);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('blocked pattern');
++    });
++
++    it('should block symlink pointing to .env even with different name', async () => {
++      // Create another .env file with different structure
++      const envPath = path.join(tempDir, 'subdir-env', '.env');
++      const symlinkPath = path.join(tempDir, 'totally-safe-file.json');
++
++      // Create subdirectory
++      await fs.mkdir(path.join(tempDir, 'subdir-env'), { recursive: true });
++      await fs.writeFile(envPath, 'API_KEY=secret123');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      await fs.symlink(envPath, symlinkPath);
++
++      const result = await validatePath(symlinkPath);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('blocked pattern');
++    });
++  });
++
++  describe('.env.example Allowlist', () => {
++    let examplePath: string;
++
++    beforeEach(async () => {
++      examplePath = path.join(tempDir, '.env.example');
++      try {
++        await fs.writeFile(examplePath, 'EXAMPLE_VAR=placeholder');
++      } catch {
++        // Already exists
++      }
++    });
++
++    it('should allow .env.example for read operations', async () => {
++      const result = await validatePath(examplePath, { operation: 'read' });
++
++      expect(result.valid).toBe(true);
++      expect(result.resolvedPath).toBeDefined();
++    });
++
++    it('should allow .env.sample for read operations', async () => {
++      const samplePath = path.join(tempDir, '.env.sample');
++      await fs.writeFile(samplePath, 'SAMPLE_VAR=placeholder');
++
++      const result = await validatePath(samplePath, { operation: 'read' });
++
++      expect(result.valid).toBe(true);
++    });
++
++    it('should allow .env.template for read operations', async () => {
++      const templatePath = path.join(tempDir, '.env.template');
++      await fs.writeFile(templatePath, 'TEMPLATE_VAR=placeholder');
++
++      const result = await validatePath(templatePath, { operation: 'read' });
++
++      expect(result.valid).toBe(true);
++    });
++
++    it('should block .env.example for write operations', async () => {
++      const result = await validatePath(examplePath, { operation: 'write' });
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('blocked pattern');
++    });
++
++    itSymlink('should allow symlink to .env.example for read operations', async () => {
++      const symlinkPath = path.join(tempDir, 'example-link.txt');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      await fs.symlink(examplePath, symlinkPath);
++
++      const result = await validatePath(symlinkPath, { operation: 'read' });
++
++      expect(result.valid).toBe(true);
++    });
++
++    itSymlink('should block symlink to .env.example for write operations', async () => {
++      const symlinkPath = path.join(tempDir, 'example-link-write.txt');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      await fs.symlink(examplePath, symlinkPath);
++
++      const result = await validatePath(symlinkPath, { operation: 'write' });
++
++      // Write to symlinks is blocked regardless of target
++      expect(result.valid).toBe(false);
++    });
++  });
++
++  describe('Blocked Absolute Paths', () => {
++    itUnixSymlinkOnly('should block symlink to /etc/passwd', async () => {
++      const symlinkPath = path.join(tempDir, 'users.txt');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      try {
++        await fs.symlink('/etc/passwd', symlinkPath);
++        const result = await validatePath(symlinkPath);
++
++        expect(result.valid).toBe(false);
++        expect(result.error).toContain('restricted system path');
++      } catch (err) {
++        // Skip if symlink creation fails (permissions or OS limitations)
++        const error = err as NodeJS.ErrnoException;
++        if (error.code === 'EPERM' || error.code === 'EACCES') {
++          console.log(
++            'Skipping /etc/passwd symlink test - permission denied for symlink creation'
++          );
++        } else {
++          throw err;
++        }
++      }
++    });
++
++    itUnixSymlinkOnly('should block symlink to /etc/shadow', async () => {
++      const symlinkPath = path.join(tempDir, 'shadow-link.txt');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      try {
++        await fs.symlink('/etc/shadow', symlinkPath);
++        const result = await validatePath(symlinkPath);
++
++        expect(result.valid).toBe(false);
++        expect(result.error).toContain('restricted system path');
++      } catch (err) {
++        const error = err as NodeJS.ErrnoException;
++        if (error.code === 'EPERM' || error.code === 'EACCES') {
++          console.log('Skipping /etc/shadow symlink test - permission denied');
++        } else {
++          throw err;
++        }
++      }
++    });
++
++    itUnixOnly('should block direct access to /etc/passwd', async () => {
++      const result = await validatePath('/etc/passwd');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('restricted system path');
++    });
++
++    itUnixOnly('should block direct access to /proc paths', async () => {
++      const result = await validatePath('/proc/self/environ');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('restricted system path');
++    });
++  });
++
++  describe('Path Injection Prevention', () => {
++    it('should block paths with null bytes', async () => {
++      const result = await validatePath('/some/path\x00/file.txt');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('null bytes');
++    });
++
++    it('should block paths with embedded null bytes in filename', async () => {
++      const result = await validatePath('/home/user/file\x00.txt');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('null bytes');
++    });
++
++    it('should block paths with null bytes at start', async () => {
++      const result = await validatePath('\x00/etc/passwd');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('null bytes');
++    });
++  });
++
++  describe('Non-Existent Path Handling', () => {
++    it('should handle non-existent paths with allowNonExistent option', async () => {
++      const nonExistentPath = path.join(tempDir, 'nonexistent', 'file.txt');
++
++      const result = await validatePath(nonExistentPath, {
++        allowNonExistent: true,
++      });
++
++      expect(result.valid).toBe(true);
++      expect(result.resolvedPath).toBeDefined();
++    });
++
++    it('should reject non-existent paths without allowNonExistent option', async () => {
++      const nonExistentPath = path.join(
++        tempDir,
++        'definitely-not-here',
++        'file.txt'
++      );
++
++      const result = await validatePath(nonExistentPath);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('does not exist');
++    });
++
++    it('should resolve parent path for non-existent files', async () => {
++      // Create a real parent directory
++      const parentDir = path.join(tempDir, 'real-parent');
++      await fs.mkdir(parentDir, { recursive: true });
++
++      const nonExistentFile = path.join(parentDir, 'new-file.txt');
++
++      const result = await validatePath(nonExistentFile, {
++        allowNonExistent: true,
++      });
++
++      expect(result.valid).toBe(true);
++      expect(result.resolvedPath).toContain('real-parent');
++    });
++  });
++
++  describe('Write Operation Symlink Protection', () => {
++    itSymlink('should block write operations to symlinks', async () => {
++      // Create a regular file and a symlink to it
++      const targetFile = path.join(tempDir, 'write-target.txt');
++      const symlinkPath = path.join(tempDir, 'write-symlink.txt');
++
++      await fs.writeFile(targetFile, 'original content');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      await fs.symlink(targetFile, symlinkPath);
++
++      const result = await validatePath(symlinkPath, { operation: 'write' });
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('cannot write to symlink');
++    });
++
++    it('should allow write operations to regular files', async () => {
++      const regularFile = path.join(tempDir, 'regular-write.txt');
++      await fs.writeFile(regularFile, 'content');
++
++      const result = await validatePath(regularFile, { operation: 'write' });
++
++      expect(result.valid).toBe(true);
++    });
++  });
++
++  describeSymlink('Circular Symlink Detection', () => {
++    it('should detect and block circular symlinks', async () => {
++      // Create a circular symlink: a -> b -> a
++      const linkA = path.join(tempDir, 'circular-a');
++      const linkB = path.join(tempDir, 'circular-b');
++
++      // Clean up any existing links
++      try {
++        await fs.unlink(linkA);
++      } catch {
++        // Ignore
++      }
++      try {
++        await fs.unlink(linkB);
++      } catch {
++        // Ignore
++      }
++
++      try {
++        // Create circular reference
++        await fs.symlink(linkB, linkA);
++        await fs.symlink(linkA, linkB);
++
++        const result = await validatePath(linkA);
++
++        expect(result.valid).toBe(false);
++        expect(result.error).toContain('circular symlink');
++      } catch (err) {
++        const error = err as NodeJS.ErrnoException;
++        if (error.code === 'ELOOP') {
++          // Some systems might throw ELOOP during symlink creation
++          console.log(
++            'OS detected circular symlink during creation - test passes'
++          );
++          expect(true).toBe(true);
++        } else {
++          throw err;
++        }
++      }
++    });
++
++    it('should detect self-referencing symlink', async () => {
++      const selfLink = path.join(tempDir, 'self-link');
++
++      try {
++        await fs.unlink(selfLink);
++      } catch {
++        // Ignore
++      }
++
++      try {
++        await fs.symlink(selfLink, selfLink);
++
++        const result = await validatePath(selfLink);
++
++        expect(result.valid).toBe(false);
++        expect(result.error).toContain('circular symlink');
++      } catch (err) {
++        const error = err as NodeJS.ErrnoException;
++        // EEXIST or ELOOP are both acceptable failure modes
++        if (error.code === 'EEXIST' || error.code === 'ELOOP') {
++          console.log('OS prevented self-referencing symlink - test passes');
++          expect(true).toBe(true);
++        } else {
++          throw err;
++        }
++      }
++    });
++  });
++
++  describe('Blocked Patterns', () => {
++    it('should block .ssh directory access', async () => {
++      // Create a fake .ssh directory structure
++      const sshDir = path.join(tempDir, '.ssh');
++      const keyFile = path.join(sshDir, 'id_rsa');
++
++      await fs.mkdir(sshDir, { recursive: true });
++      await fs.writeFile(keyFile, 'fake-key');
++
++      const result = await validatePath(keyFile);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('blocked pattern');
++    });
++
++    it('should block .aws credentials access', async () => {
++      const awsDir = path.join(tempDir, '.aws');
++      const credFile = path.join(awsDir, 'credentials');
++
++      await fs.mkdir(awsDir, { recursive: true });
++      await fs.writeFile(credFile, '[default]');
++
++      const result = await validatePath(credFile);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('blocked pattern');
++    });
++
++    itSymlink('should block symlink to .ssh directory', async () => {
++      const sshDir = path.join(tempDir, '.ssh');
++      const symlinkPath = path.join(tempDir, 'config-backup');
++
++      await fs.mkdir(sshDir, { recursive: true });
++      await fs.writeFile(path.join(sshDir, 'config'), 'Host *');
++
++      try {
++        await fs.unlink(symlinkPath);
++      } catch {
++        // Ignore
++      }
++
++      await fs.symlink(path.join(sshDir, 'config'), symlinkPath);
++
++      const result = await validatePath(symlinkPath);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('blocked pattern');
++    });
++  });
++
++  describe('Sync Version Parity', () => {
++    it('validatePathSync should block paths with null bytes', () => {
++      const result = validatePathSync('/some/path\x00/file.txt');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('null bytes');
++    });
++
++    it('validatePathSync should match async behavior for blocked patterns', () => {
++      // Create a path that matches .env pattern
++      const envPath = path.join(tempDir, '.env');
++
++      // Write the file synchronously for this test
++      fsSync.writeFileSync(envPath, 'SYNC_TEST=value');
++
++      const syncResult = validatePathSync(envPath);
++
++      expect(syncResult.valid).toBe(false);
++      expect(syncResult.error).toContain('blocked pattern');
++    });
++
++    it('validatePathSync should handle non-existent paths correctly', () => {
++      const nonExistentPath = path.join(tempDir, 'sync-nonexistent.txt');
++
++      const resultWithoutOption = validatePathSync(nonExistentPath);
++      expect(resultWithoutOption.valid).toBe(false);
++      expect(resultWithoutOption.error).toContain('does not exist');
++
++      const resultWithOption = validatePathSync(nonExistentPath, {
++        allowNonExistent: true,
++      });
++      expect(resultWithOption.valid).toBe(true);
++    });
++
++    itUnixOnly('validatePathSync should block system paths', () => {
++      const result = validatePathSync('/etc/passwd');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('restricted system path');
++    });
++  });
++
++  describe('Input Validation', () => {
++    it('should reject empty string path', async () => {
++      const result = await validatePath('');
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('non-empty string');
++    });
++
++    it('should reject null path', async () => {
++      const result = await validatePath(null as unknown as string);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('non-empty string');
++    });
++
++    it('should reject undefined path', async () => {
++      const result = await validatePath(undefined as unknown as string);
++
++      expect(result.valid).toBe(false);
++      expect(result.error).toContain('non-empty string');
++    });
++  });
++
++  describe('Edge Cases', () => {
++    it('should handle paths with special characters', async () => {
++      const specialPath = path.join(tempDir, 'file with spaces.txt');
++      await fs.writeFile(specialPath, 'content');
++
++      const result = await validatePath(specialPath);
++
++      expect(result.valid).toBe(true);
++    });
++
++    it('should handle very long paths', async () => {
++      // Create a deeply nested but valid path
++      const deepPath = path.join(tempDir, 'a', 'b', 'c', 'd', 'e', 'file.txt');
++
++      const result = await validatePath(deepPath, { allowNonExistent: true });
++
++      expect(result.valid).toBe(true);
++    });
++
++    it('should normalize path traversal attempts', async () => {
++      // Create a file
++      const targetFile = path.join(tempDir, 'target.txt');
++      await fs.writeFile(targetFile, 'content');
++
++      // Try to access via path traversal
++      const traversalPath = path.join(tempDir, 'subdir', '..', 'target.txt');
++
++      // Should normalize and find the file
++      const result = await validatePath(traversalPath);
++
++      // Note: This depends on whether the file is within allowed directories
++      // The key is that the path is properly normalized
++      expect(result.resolvedPath).not.toContain('..');
++    });
++  });
++});

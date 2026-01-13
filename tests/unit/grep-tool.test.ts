@@ -312,6 +312,8 @@ test pattern here
 
       // Allow the tool to finish async validation and start the initial rg process.
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+      expect(rgProc).toBeDefined();
 
       const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
       rgError.code = 'ENOENT';
@@ -319,6 +321,8 @@ test pattern here
 
       // Allow fallback to spawn grep.
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(2);
+      expect(grepProc).toBeDefined();
 
       const grepError = new Error('spawn grep ENOENT') as NodeJS.ErrnoException;
       grepError.code = 'ENOENT';
@@ -336,6 +340,8 @@ test pattern here
 
       // Allow the tool to finish async validation and start the initial rg process.
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+      expect(rgProc).toBeDefined();
 
       const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
       rgError.code = 'ENOENT';
@@ -343,6 +349,8 @@ test pattern here
 
       // Allow fallback to spawn grep.
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(2);
+      expect(grepProc).toBeDefined();
 
       const grepError = new Error('Permission denied') as NodeJS.ErrnoException;
       grepError.code = 'EACCES';
@@ -365,6 +373,8 @@ test pattern here
 
       // Allow the tool to finish async validation and start the initial rg process.
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+      expect(rgProc).toBeDefined();
 
       const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
       rgError.code = 'ENOENT';
@@ -373,6 +383,8 @@ test pattern here
 
       // Allow fallback to spawn grep.
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(2);
+      expect(grepProc).toBeDefined();
 
       rgProc?.emit('close', 0);
       await flushImmediate();
@@ -392,6 +404,8 @@ test pattern here
       const resultPromise = tool.execute({ pattern: '-malicious', path: '/tmp' });
 
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+      expect(rgProc).toBeDefined();
 
       // Verify rg args include -- before pattern
       const rgArgs = spawnMock.mock.calls[0][1];
@@ -405,6 +419,8 @@ test pattern here
       rgError.code = 'ENOENT';
       rgProc?.emit('error', rgError);
       await flushImmediate();
+      expect(spawnMock).toHaveBeenCalledTimes(2);
+      expect(grepProc).toBeDefined();
 
       // Verify grep args include -- before pattern
       const grepArgs = spawnMock.mock.calls[1][1];

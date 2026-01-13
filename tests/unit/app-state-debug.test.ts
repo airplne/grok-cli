@@ -18,7 +18,14 @@
  * C. Message filtering (line 187: filter m.role !== 'streaming')
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+const DEBUG_STATE = process.env.DEBUG_STATE === 'true';
+
+const debugLog = (...args: unknown[]) => {
+  if (!DEBUG_STATE) return;
+  console.log(...args);
+};
 
 // Simulated state management matching App component behavior
 interface Message {
@@ -58,7 +65,7 @@ class AppStateSimulator {
       textBuffer: this.state.textBuffer.substring(0, 50)
     });
     this.logs.push(`[${message}] State: ${snapshot}`);
-    console.log(`[${message}] State: ${snapshot}`);
+    debugLog(`[${message}] State: ${snapshot}`);
   }
 
   getLogs(): string[] {
@@ -169,7 +176,7 @@ describe('App UI State Management Bug Analysis', () => {
 
       // EXPECTED: Both user and assistant messages
       const finalMessages = simulator.getState().messages;
-      console.log('Final messages:', finalMessages);
+      debugLog('Final messages:', finalMessages);
 
       expect(finalMessages).toHaveLength(2);
       expect(finalMessages[0].role).toBe('user');
@@ -193,7 +200,7 @@ describe('App UI State Management Bug Analysis', () => {
       simulator.handleDoneEvent();
 
       const messages = simulator.getState().messages;
-      console.log('Messages after race condition test:', messages);
+      debugLog('Messages after race condition test:', messages);
 
       // The atomic capture SHOULD handle this
       expect(messages).toHaveLength(2);
@@ -208,7 +215,7 @@ describe('App UI State Management Bug Analysis', () => {
       simulator.handleDoneEvent();
 
       const messages = simulator.getState().messages;
-      console.log('Messages after empty response:', messages);
+      debugLog('Messages after empty response:', messages);
 
       // Should only have user message, no empty assistant message
       expect(messages).toHaveLength(1);
@@ -233,7 +240,7 @@ describe('App UI State Management Bug Analysis', () => {
       simulator.handleDoneEvent();
 
       const messages = simulator.getState().messages;
-      console.log('Messages after multiple exchanges:', messages);
+      debugLog('Messages after multiple exchanges:', messages);
 
       expect(messages).toHaveLength(4);
       expect(messages.map(m => m.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
@@ -304,7 +311,7 @@ describe('App UI State Management Bug Analysis', () => {
       expect(id2).not.toBe(id3);
       expect(id1).not.toBe(id3);
 
-      console.log('Message IDs:', { id1, id2, id3 });
+      debugLog('Message IDs:', { id1, id2, id3 });
     });
   });
 
@@ -409,7 +416,7 @@ describe('Bug Root Cause Analysis', () => {
    */
 
   it('Document the nested setState anti-pattern', () => {
-    console.log(`
+    debugLog(`
     BUG IDENTIFICATION:
     ===================
 

@@ -2,7 +2,7 @@
 
 **PR Type**: Security Hardening + Test Stability
 **Status**: Complete
-**Date**: 2026-01-12
+**Date**: 2026-01-13
 
 ---
 
@@ -155,6 +155,7 @@ const result = await resultPromise;
 - `'shows helpful error when both tools are missing'`
 - `'includes fallback prefix on error paths'`
 - `'ignores stale events from the initial rg process'`
+- `'verifies -- separator in spawn args prevents pattern injection'`
 
 **Why this matters**: The production code uses `setImmediate()` to defer grep spawning (line 114). Tests must respect this timing by awaiting ticks between event emissions to accurately verify the fallback behavior and stale event handling.
 
@@ -192,7 +193,40 @@ beforeAll(async () => {
 **Automatic cleanup** (afterAll):
 ```typescript
 afterAll(async () => {
-  // Cleanup temp directory
+  // Safety guards before cleanup
+  if (!tempDir) {
+    console.warn('tempDir is undefined, skipping cleanup');
+    return;
+  }
+
+  const homeDir = os.homedir();
+
+  // Guard 1: Verify basename starts with expected prefix
+  const basename = path.basename(tempDir);
+  if (!basename.startsWith('.tmp-path-validator-test-')) {
+    throw new Error(`SAFETY: tempDir basename missing prefix: ${basename}`);
+  }
+
+  // Guard 2: Never delete home directory itself
+  if (tempDir === homeDir) {
+    throw new Error('SAFETY: Refusing to delete home directory');
+  }
+
+  // Guard 3: Resolve real path and verify it's under home
+  const realTempDir = await fs.realpath(tempDir);
+  const realHomeDir = await fs.realpath(homeDir);
+
+  if (realTempDir === realHomeDir) {
+    throw new Error('SAFETY: Resolved tempDir is home directory');
+  }
+
+  // Guard 4: Verify resolved path is under home directory
+  const relativePath = path.relative(realHomeDir, realTempDir);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error(`SAFETY: tempDir not under home: ${realTempDir}`);
+  }
+
+  // All guards passed - safe to delete
   try {
     await fs.rm(tempDir, { recursive: true, force: true });
     console.log(`Cleaned up test fixtures directory: ${tempDir}`);
@@ -201,6 +235,8 @@ afterAll(async () => {
   }
 });
 ```
+
+**Cross-platform note**: Symlink-heavy tests are gated behind a module-scope capability check and wrappers (`describeSymlink`, `itSymlink`, `itUnixOnly`, `itUnixSymlinkOnly`) so Windows machines (or environments without symlink permissions) skip those tests instead of failing.
 
 **Manual cleanup if tests interrupted**:
 ```bash
@@ -218,15 +254,15 @@ rm -rf "$HOME"/.tmp-path-validator-test-*
 | Test File | Tests | Status |
 |-----------|-------|--------|
 | `tests/unit/app-state-debug.test.ts` | 8 | PASS (existing) |
-| `tests/unit/grep-tool.test.ts` | 25 | PASS (new) |
+| `tests/unit/grep-tool.test.ts` | 26 | PASS (new) |
 | `tests/unit/path-validator.test.ts` | 35 | PASS (new) |
-| **Total** | **68** | **ALL PASS** |
+| **Total** | **69** | **ALL PASS** |
 
 ### Full Test Output
 
 ```
  Test Files  3 passed (3)
-      Tests  68 passed (68)
+      Tests  69 passed (69)
    Duration  2.26s
 ```
 
@@ -243,7 +279,7 @@ npm test -- --run
 **Expected Result**:
 ```
  Test Files  3 passed (3)
-      Tests  68 passed (68)
+      Tests  69 passed (69)
 ```
 
 ### Run in watch mode
@@ -268,7 +304,7 @@ npm test -- --run tests/unit/path-validator.test.ts
 | File | Type | Description |
 |------|------|-------------|
 | `src/tools/grep.ts` | Production | Pattern injection prevention, race condition fixes, improved errors |
-| `tests/unit/grep-tool.test.ts` | Test | Comprehensive grep tool test coverage (25 tests) |
+| `tests/unit/grep-tool.test.ts` | Test | Comprehensive grep tool test coverage (26 tests) |
 | `tests/unit/path-validator.test.ts` | Test | Path validation test coverage (35 tests) |
 
 ---
@@ -289,13 +325,13 @@ npm test -- --run tests/unit/path-validator.test.ts
 
 | Criterion | Status |
 |-----------|--------|
-| `npm test -- --run` passes 68/68 tests | ✅ VERIFIED |
+| `npm test -- --run` passes 69/69 tests | ✅ VERIFIED |
 | `npm test` watch mode runs without errors | ✅ VERIFIED |
 | All 5 grep.ts fixes implemented with correct line numbers | ✅ VERIFIED |
 | Documentation matches current implementation | ✅ VERIFIED |
 
 ---
 
-**Document Generated**: 2026-01-12
-**Implementation Verified**: 2026-01-12
+**Document Generated**: 2026-01-13
+**Implementation Verified**: 2026-01-13
 **All Acceptance Criteria**: MET

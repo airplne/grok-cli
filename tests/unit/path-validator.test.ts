@@ -23,6 +23,40 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+// Platform detection (must be synchronous - Vitest registers tests at module load time)
+const IS_WINDOWS = process.platform === 'win32';
+
+function detectSymlinkCapability(): boolean {
+  const linkPath = path.join(
+    os.tmpdir(),
+    `.grok-cli-symlink-capability-${process.pid}-${Date.now()}`
+  );
+
+  try {
+    fsSync.symlinkSync(os.tmpdir(), linkPath, 'dir');
+    return true;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'EPERM' || code === 'EACCES') return false;
+    return false;
+  } finally {
+    try {
+      fsSync.unlinkSync(linkPath);
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+}
+
+const CAN_CREATE_SYMLINKS = detectSymlinkCapability();
+
+const describeSymlink = CAN_CREATE_SYMLINKS ? describe : describe.skip;
+const itSymlink = CAN_CREATE_SYMLINKS ? it : it.skip;
+
+const describeUnixOnly = IS_WINDOWS ? describe.skip : describe;
+const itUnixOnly = IS_WINDOWS ? it.skip : it;
+const itUnixSymlinkOnly = !IS_WINDOWS && CAN_CREATE_SYMLINKS ? it : it.skip;
+
 describe('PathValidator - Symlink Security (SEC-001)', () => {
   let tempDir: string;
 
@@ -37,7 +71,40 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
   });
 
   afterAll(async () => {
-    // Cleanup temp directory
+    // Safety guards before cleanup
+    if (!tempDir) {
+      console.warn('tempDir is undefined, skipping cleanup');
+      return;
+    }
+
+    const homeDir = os.homedir();
+
+    // Guard 1: Verify basename starts with expected prefix
+    const basename = path.basename(tempDir);
+    if (!basename.startsWith('.tmp-path-validator-test-')) {
+      throw new Error(`SAFETY: tempDir basename missing prefix: ${basename}`);
+    }
+
+    // Guard 2: Never delete home directory itself
+    if (tempDir === homeDir) {
+      throw new Error('SAFETY: Refusing to delete home directory');
+    }
+
+    // Guard 3: Resolve real path and verify it's under home
+    const realTempDir = await fs.realpath(tempDir);
+    const realHomeDir = await fs.realpath(homeDir);
+
+    if (realTempDir === realHomeDir) {
+      throw new Error('SAFETY: Resolved tempDir is home directory');
+    }
+
+    // Guard 4: Verify resolved path is under home directory
+    const relativePath = path.relative(realHomeDir, realTempDir);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new Error(`SAFETY: tempDir not under home: ${realTempDir}`);
+    }
+
+    // All guards passed - safe to delete
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
       console.log(`Cleaned up test fixtures directory: ${tempDir}`);
@@ -46,7 +113,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
     }
   });
 
-  describe('Symlink Resolution', () => {
+  describeSymlink('Symlink Resolution', () => {
     it('should block symlink pointing to .env file', async () => {
       // Create .env file and symlink pointing to it
       const envPath = path.join(tempDir, '.env');
@@ -138,7 +205,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       expect(result.error).toContain('blocked pattern');
     });
 
-    it('should allow symlink to .env.example for read operations', async () => {
+    itSymlink('should allow symlink to .env.example for read operations', async () => {
       const symlinkPath = path.join(tempDir, 'example-link.txt');
 
       try {
@@ -154,7 +221,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should block symlink to .env.example for write operations', async () => {
+    itSymlink('should block symlink to .env.example for write operations', async () => {
       const symlinkPath = path.join(tempDir, 'example-link-write.txt');
 
       try {
@@ -173,7 +240,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
   });
 
   describe('Blocked Absolute Paths', () => {
-    it('should block symlink to /etc/passwd', async () => {
+    itUnixSymlinkOnly('should block symlink to /etc/passwd', async () => {
       const symlinkPath = path.join(tempDir, 'users.txt');
 
       try {
@@ -201,7 +268,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       }
     });
 
-    it('should block symlink to /etc/shadow', async () => {
+    itUnixSymlinkOnly('should block symlink to /etc/shadow', async () => {
       const symlinkPath = path.join(tempDir, 'shadow-link.txt');
 
       try {
@@ -226,14 +293,14 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       }
     });
 
-    it('should block direct access to /etc/passwd', async () => {
+    itUnixOnly('should block direct access to /etc/passwd', async () => {
       const result = await validatePath('/etc/passwd');
 
       expect(result.valid).toBe(false);
       expect(result.error).toContain('restricted system path');
     });
 
-    it('should block direct access to /proc paths', async () => {
+    itUnixOnly('should block direct access to /proc paths', async () => {
       const result = await validatePath('/proc/self/environ');
 
       expect(result.valid).toBe(false);
@@ -306,7 +373,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
   });
 
   describe('Write Operation Symlink Protection', () => {
-    it('should block write operations to symlinks', async () => {
+    itSymlink('should block write operations to symlinks', async () => {
       // Create a regular file and a symlink to it
       const targetFile = path.join(tempDir, 'write-target.txt');
       const symlinkPath = path.join(tempDir, 'write-symlink.txt');
@@ -337,7 +404,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
     });
   });
 
-  describe('Circular Symlink Detection', () => {
+  describeSymlink('Circular Symlink Detection', () => {
     it('should detect and block circular symlinks', async () => {
       // Create a circular symlink: a -> b -> a
       const linkA = path.join(tempDir, 'circular-a');
@@ -435,7 +502,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       expect(result.error).toContain('blocked pattern');
     });
 
-    it('should block symlink to .ssh directory', async () => {
+    itSymlink('should block symlink to .ssh directory', async () => {
       const sshDir = path.join(tempDir, '.ssh');
       const symlinkPath = path.join(tempDir, 'config-backup');
 
@@ -491,7 +558,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       expect(resultWithOption.valid).toBe(true);
     });
 
-    it('validatePathSync should block system paths', () => {
+    itUnixOnly('validatePathSync should block system paths', () => {
       const result = validatePathSync('/etc/passwd');
 
       expect(result.valid).toBe(false);

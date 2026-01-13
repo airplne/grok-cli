@@ -386,5 +386,35 @@ test pattern here
       expect(result.output).toContain('Using grep fallback (rg not found).');
       expect(result.output).toContain('grep output');
     });
+
+    it('verifies -- separator in spawn args prevents pattern injection', async () => {
+      const tool = new GrepToolMocked();
+      const resultPromise = tool.execute({ pattern: '-malicious', path: '/tmp' });
+
+      await flushImmediate();
+
+      // Verify rg args include -- before pattern
+      const rgArgs = spawnMock.mock.calls[0][1];
+      const rgDashIndex = rgArgs.indexOf('--');
+      const rgPatIndex = rgArgs.indexOf('-malicious');
+      expect(rgDashIndex).toBeGreaterThan(-1);
+      expect(rgPatIndex).toEqual(rgDashIndex + 1);
+
+      // Trigger fallback
+      const rgError = new Error('spawn rg ENOENT') as NodeJS.ErrnoException;
+      rgError.code = 'ENOENT';
+      rgProc?.emit('error', rgError);
+      await flushImmediate();
+
+      // Verify grep args include -- before pattern
+      const grepArgs = spawnMock.mock.calls[1][1];
+      const grepDashIndex = grepArgs.indexOf('--');
+      const grepPatIndex = grepArgs.indexOf('-malicious');
+      expect(grepDashIndex).toBeGreaterThan(-1);
+      expect(grepPatIndex).toEqual(grepDashIndex + 1);
+
+      grepProc?.emit('close', 1);
+      await resultPromise;
+    });
   });
 });

@@ -26,6 +26,13 @@ import * as os from 'os';
 // Platform detection (must be synchronous - Vitest registers tests at module load time)
 const IS_WINDOWS = process.platform === 'win32';
 
+const DEBUG_TESTS = process.env.DEBUG_TESTS === 'true';
+
+const debugLog = (...args: unknown[]) => {
+  if (!DEBUG_TESTS) return;
+  console.log(...args);
+};
+
 function detectSymlinkCapability(): boolean {
   const linkPath = path.join(
     os.tmpdir(),
@@ -67,7 +74,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
     // The path validator allows both cwd and home directories.
     const homeDir = os.homedir();
     tempDir = await fs.mkdtemp(path.join(homeDir, '.tmp-path-validator-test-'));
-    console.log(`Test fixtures directory: ${tempDir}`);
+    debugLog(`Test fixtures directory: ${tempDir}`);
   });
 
   afterAll(async () => {
@@ -107,7 +114,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
     // All guards passed - safe to delete
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
-      console.log(`Cleaned up test fixtures directory: ${tempDir}`);
+      debugLog(`Cleaned up test fixtures directory: ${tempDir}`);
     } catch (err) {
       console.warn(`Warning: Failed to cleanup ${tempDir}:`, err);
     }
@@ -259,7 +266,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
         // Skip if symlink creation fails (permissions or OS limitations)
         const error = err as NodeJS.ErrnoException;
         if (error.code === 'EPERM' || error.code === 'EACCES') {
-          console.log(
+          debugLog(
             'Skipping /etc/passwd symlink test - permission denied for symlink creation'
           );
         } else {
@@ -286,7 +293,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
       } catch (err) {
         const error = err as NodeJS.ErrnoException;
         if (error.code === 'EPERM' || error.code === 'EACCES') {
-          console.log('Skipping /etc/shadow symlink test - permission denied');
+          debugLog('Skipping /etc/shadow symlink test - permission denied');
         } else {
           throw err;
         }
@@ -435,7 +442,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
         const error = err as NodeJS.ErrnoException;
         if (error.code === 'ELOOP') {
           // Some systems might throw ELOOP during symlink creation
-          console.log(
+          debugLog(
             'OS detected circular symlink during creation - test passes'
           );
           expect(true).toBe(true);
@@ -465,7 +472,7 @@ describe('PathValidator - Symlink Security (SEC-001)', () => {
         const error = err as NodeJS.ErrnoException;
         // EEXIST or ELOOP are both acceptable failure modes
         if (error.code === 'EEXIST' || error.code === 'ELOOP') {
-          console.log('OS prevented self-referencing symlink - test passes');
+          debugLog('OS prevented self-referencing symlink - test passes');
           expect(true).toBe(true);
         } else {
           throw err;

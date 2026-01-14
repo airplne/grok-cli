@@ -304,8 +304,24 @@ npm test -- --run tests/unit/path-validator.test.ts
 | File | Type | Description |
 |------|------|-------------|
 | `src/tools/grep.ts` | Production | Pattern injection prevention, race condition fixes, improved errors |
-| `tests/unit/grep-tool.test.ts` | Test | Comprehensive grep tool test coverage (26 tests) |
-| `tests/unit/path-validator.test.ts` | Test | Path validation test coverage (35 tests) |
+| `src/security/path-validator.ts` | Production | Operation-aware `.env` allowlist, symlink-aware resolution, allowed-dir enforcement |
+| `tests/unit/grep-tool.test.ts` | Test | Grep tool test coverage (26 tests), deterministic mocked fallback sequencing |
+| `tests/unit/path-validator.test.ts` | Test | Symlink regression coverage (35 tests), home-dir cleanup guards, cross-platform gating |
+| `tests/unit/app-state-debug.test.ts` | Test | `DEBUG_STATE`-gated logging for cleaner test output |
+| `docs/PRP-SECURITY-CODE-QUALITY-FIXES.md` | Documentation | Original security PRP specification |
+| `docs/PR-CODEX-FIXES-IMPLEMENTATION.md` | Documentation | Implementation report (this document) |
+| `docs/PRP-GPT5-PRO-PR1-FOLLOWUP.md` | Documentation | GPT-5 Pro review #1 follow-up PRP |
+| `docs/PRP-GPT5PRO-PR1-REVIEW2-FOLLOWUP.md` | Documentation | GPT-5 Pro review #2 follow-up PRP |
+| `docs/PRP-GPT5PRO-PR1-FINAL-REVIEW.md` | Documentation | Final GPT-5 Pro review execution PRP |
+| `docs/GPT5-PRO-REVIEW-FINAL.md` | Documentation | Reviewer checklist/template used for submissions |
+| `docs/USAGE.md` | Documentation | User-facing install/usage notes (rg/grep dependency) |
+| `docs/POST-MERGE-ENHANCEMENTS.md` | Documentation | Post-merge follow-ups (TOCTOU, deps, Windows validation, coverage) |
+| `.grok/FINAL-GPT5-REVIEW2-SUBMISSION.md` | Review Artifact | GPT-5 Pro re-review submission letter |
+| `.grok/GPT5-PRO-REVIEW2-FALSE-POSITIVES.md` | Review Artifact | Evidence packet for false-positive claims |
+| `.grok/PR-DIFF.patch` | Review Artifact | Full PR diff snapshot used for review |
+| `.grok/NEXT-STEPS.md` | Review Artifact | Historical PR creation steps (kept for audit trail) |
+
+**Total**: 17 files (2 production, 3 tests, 8 docs, 4 review artifacts)
 
 ---
 
@@ -332,6 +348,21 @@ npm test -- --run tests/unit/path-validator.test.ts
 
 ---
 
-**Document Generated**: 2026-01-13
-**Implementation Verified**: 2026-01-13
+## Merge Status
+
+**PR**: https://github.com/airplne/grok-cli/pull/1  
+**Merged At**: 2026-01-14 00:50:39 UTC  
+**Merged By**: airplne  
+**Merge Type**: Squash  
+**Merge Commit**: `39f1d7e58519943b960c318e20f557aa4b43e9b5`  
+
+**Post-merge verification (main @ 39f1d7e)**:
+- `npm test -- --run` → 69/69 passing
+- Branch `fix/grep-security-code-quality` deleted (remote)
+
+---
+
+**Document Generated**: 2026-01-13  
+**Implementation Verified**: 2026-01-13  
+**Merged to main**: 2026-01-14  
 **All Acceptance Criteria**: MET

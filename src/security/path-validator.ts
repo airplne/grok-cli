@@ -19,6 +19,9 @@ interface ValidationOptions {
 // BLOCKED PATTERNS - File/directory patterns that are always forbidden
 // ============================================================================
 
+const ENV_BLOCK_PATTERN = /\.env(?:\.|$)/i;
+const ENV_DOC_ALLOW_PATTERN = /\.env\.(example|sample|template)$/i;
+
 const BLOCKED_PATTERNS = [
   // SSH keys and config
   /\.ssh/,
@@ -36,7 +39,7 @@ const BLOCKED_PATTERNS = [
   /secrets/i,
 
   // Environment files
-  /\.env(?:\.|$)/,
+  ENV_BLOCK_PATTERN,
 
   // Private keys
   /private.*key/i,
@@ -220,7 +223,12 @@ export async function validatePath(
 
     // Step 5: Check against blocked patterns (using RESOLVED path, not input)
     // This prevents bypassing blocked patterns via symlinks
+    const allowEnvDocs =
+      operation === 'read' && ENV_DOC_ALLOW_PATTERN.test(resolvedPath);
     for (const pattern of BLOCKED_PATTERNS) {
+      if (pattern === ENV_BLOCK_PATTERN && allowEnvDocs) {
+        continue;
+      }
       if (pattern.test(resolvedPath)) {
         return {
           valid: false,
@@ -313,7 +321,12 @@ export function validatePathSync(
       }
     }
 
+    const allowEnvDocs =
+      operation === 'read' && ENV_DOC_ALLOW_PATTERN.test(resolvedPath);
     for (const pattern of BLOCKED_PATTERNS) {
+      if (pattern === ENV_BLOCK_PATTERN && allowEnvDocs) {
+        continue;
+      }
       if (pattern.test(resolvedPath)) {
         return {
           valid: false,

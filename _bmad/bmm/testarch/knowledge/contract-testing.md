@@ -455,7 +455,7 @@ jobs:
   ],
   "request": {
     "method": "POST",
-    "url": "https://api.github.com/repos/your-org/user-api/dispatches",
+    "url": "https://api.github.com/repos/example-org/user-api/dispatches",
     "headers": {
       "Authorization": "Bearer ${user.githubToken}",
       "Content-Type": "application/json",

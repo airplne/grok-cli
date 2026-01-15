@@ -66,49 +66,56 @@ const itUnixSymlinkOnly = !IS_WINDOWS && CAN_CREATE_SYMLINKS ? it : it.skip;
 
 describe('PathValidator - Symlink Security (SEC-001)', () => {
   let tempDir: string;
+  let originalCwd: string;
 
   beforeAll(async () => {
     // Create temp directory for test fixtures
-    // Use $HOME instead of process.cwd() to avoid Vitest file watcher traversing
-    // circular symlinks and throwing ELOOP errors in DEV watch mode.
-    // The path validator allows both cwd and home directories.
-    const homeDir = os.homedir();
-    tempDir = await fs.mkdtemp(path.join(homeDir, '.tmp-path-validator-test-'));
+    // Create fixtures outside the repo tree to avoid watch-mode file traversal issues
+    // (e.g. circular symlinks causing ELOOP errors) for developers running Vitest in watch mode.
+    // We chdir into the temp directory so the path validator's allowed-dir policy (cwd + HOME)
+    // permits these test fixture paths without needing to touch the user's home directory.
+    originalCwd = process.cwd();
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'path-validator-test-'));
+    process.chdir(tempDir);
     debugLog(`Test fixtures directory: ${tempDir}`);
   });
 
   afterAll(async () => {
+    if (originalCwd) {
+      process.chdir(originalCwd);
+    }
+
     // Safety guards before cleanup
     if (!tempDir) {
       console.warn('tempDir is undefined, skipping cleanup');
       return;
     }
 
-    const homeDir = os.homedir();
+    const tmpRoot = os.tmpdir();
 
     // Guard 1: Verify basename starts with expected prefix
     const basename = path.basename(tempDir);
-    if (!basename.startsWith('.tmp-path-validator-test-')) {
+    if (!basename.startsWith('path-validator-test-')) {
       throw new Error(`SAFETY: tempDir basename missing prefix: ${basename}`);
     }
 
-    // Guard 2: Never delete home directory itself
-    if (tempDir === homeDir) {
-      throw new Error('SAFETY: Refusing to delete home directory');
+    // Guard 2: Never delete the temp root itself
+    if (tempDir === tmpRoot) {
+      throw new Error('SAFETY: Refusing to delete temp root');
     }
 
-    // Guard 3: Resolve real path and verify it's under home
+    // Guard 3: Resolve real path and verify it's under the temp root
     const realTempDir = await fs.realpath(tempDir);
-    const realHomeDir = await fs.realpath(homeDir);
+    const realTmpRoot = await fs.realpath(tmpRoot);
 
-    if (realTempDir === realHomeDir) {
-      throw new Error('SAFETY: Resolved tempDir is home directory');
+    if (realTempDir === realTmpRoot) {
+      throw new Error('SAFETY: Resolved tempDir is temp root');
     }
 
-    // Guard 4: Verify resolved path is under home directory
-    const relativePath = path.relative(realHomeDir, realTempDir);
+    // Guard 4: Verify resolved path is under temp root
+    const relativePath = path.relative(realTmpRoot, realTempDir);
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      throw new Error(`SAFETY: tempDir not under home: ${realTempDir}`);
+      throw new Error(`SAFETY: tempDir not under temp root: ${realTempDir}`);
     }
 
     // All guards passed - safe to delete

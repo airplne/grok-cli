@@ -15,6 +15,8 @@ import { getDefaultModel, resolveModelId } from '../config/models.js';
 interface AppProps {
   initialPrompt?: string;
   model?: string;
+  apiKey?: string | null;  // API key from keychain
+  offlineMode?: boolean;   // Whether running in offline mode
 }
 
 type AppState = 'idle' | 'running' | 'waiting_input' | 'confirming';
@@ -44,7 +46,7 @@ interface PendingConfirmation {
 let messageIdCounter = 0;
 const generateId = () => `msg-${++messageIdCounter}`;
 
-export function App({ initialPrompt, model: initialModel }: AppProps) {
+export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = false }: AppProps) {
   const { exit } = useApp();
   const [state, setState] = useState<AppState>(initialPrompt ? 'running' : 'idle');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,15 +59,23 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
   );
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
 
-  // Create agent with current model
+  // Create agent with current model (only if we have API key)
   const agentRef = useRef<GrokAgent | null>(null);
 
   const getOrCreateAgent = useCallback(() => {
+    // Only create agent if we have an API key (not in offline mode)
+    if (offlineMode || !apiKey) {
+      return null;
+    }
+
     if (!agentRef.current || agentRef.current.model !== currentModel) {
-      agentRef.current = new GrokAgent({ model: currentModel });
+      agentRef.current = new GrokAgent({
+        model: currentModel,
+        apiKey: apiKey  // Pass keychain API key
+      });
     }
     return agentRef.current;
-  }, [currentModel]);
+  }, [currentModel, offlineMode, apiKey]);
 
   // Anti-flickering: Buffer for streaming text
   const textBufferRef = useRef('');
@@ -125,6 +135,7 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
     },
     exit: () => exit(),
     cwd: process.cwd(),
+    offlineMode: offlineMode, // Set from parent (based on credential status)
   }), [currentModel, messages, exit]);
 
   // Handle command execution
@@ -182,6 +193,13 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
     textBufferRef.current = '';
 
     const agent = getOrCreateAgent();
+
+    // Guard against null agent (offline mode)
+    if (!agent) {
+      setError('AI is disabled (offline mode). Run \'grok auth login\' to enable AI features.');
+      setState('idle');
+      return;
+    }
 
     try {
       for await (const event of agent.run(prompt, handleConfirmation)) {
@@ -250,16 +268,49 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
       if (isCommand(initialPrompt)) {
         executeCommand(initialPrompt).then((handled) => {
           if (!handled) {
-            setMessages([{ id: generateId(), role: 'user', content: initialPrompt, timestamp: new Date() }]);
-            runAgent(initialPrompt);
+            // In offline mode, show helper message instead of running agent
+            if (offlineMode) {
+              setMessages([
+                { id: generateId(), role: 'user', content: initialPrompt, timestamp: new Date() },
+                {
+                  id: generateId(),
+                  role: 'system',
+                  content: 'AI chat disabled (offline mode)\n\n' +
+                           'Run \'grok auth login\' to enable AI features.',
+                  timestamp: new Date(),
+                },
+              ]);
+              setState('idle');
+            } else {
+              setMessages([{ id: generateId(), role: 'user', content: initialPrompt, timestamp: new Date() }]);
+              runAgent(initialPrompt);
+            }
           } else {
             setState('idle');
           }
         });
       } else {
-        setMessages([{ id: generateId(), role: 'user', content: initialPrompt, timestamp: new Date() }]);
-        runAgent(initialPrompt);
+        // In offline mode, show helper message instead of running agent
+        if (offlineMode) {
+          setMessages([
+            { id: generateId(), role: 'user', content: initialPrompt, timestamp: new Date() },
+            {
+              id: generateId(),
+              role: 'system',
+              content: 'AI chat disabled (offline mode)\n\n' +
+                       'Run \'grok auth login\' to enable AI features.',
+              timestamp: new Date(),
+            },
+          ]);
+          setState('idle');
+        } else {
+          setMessages([{ id: generateId(), role: 'user', content: initialPrompt, timestamp: new Date() }]);
+          runAgent(initialPrompt);
+        }
       }
+    } else {
+      // No initial prompt - just go to idle state
+      setState('idle');
     }
     return () => {
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
@@ -286,6 +337,31 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
       }
     }
 
+    // In offline mode, non-command input shows helper message
+    if (offlineMode && !value.startsWith('/')) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: generateId(),
+          role: 'user',
+          content: value,
+          timestamp: new Date(),
+        },
+        {
+          id: generateId(),
+          role: 'system',
+          content: 'AI chat disabled (offline mode)\n\n' +
+                   'Available commands:\n' +
+                   '  /help        - Show all commands\n' +
+                   '  /auth login  - Enable AI mode\n\n' +
+                   'Available tools (use /help for details):\n' +
+                   '  grep, read, write, edit, glob, bash, todo',
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
     // It's a regular message - send to agent
     setMessages(prev => [...prev, {
       id: generateId(),
@@ -294,7 +370,7 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
       timestamp: new Date(),
     }]);
     runAgent(value);
-  }, [exit, executeCommand, runAgent]);
+  }, [exit, executeCommand, runAgent, offlineMode]);
 
   // Handle confirmation response
   const handleConfirmResponse = useCallback((approved: boolean) => {
@@ -351,7 +427,22 @@ export function App({ initialPrompt, model: initialModel }: AppProps) {
         <Text color="cyan" bold>grok-cli</Text>
         <Text color="gray"> - Claude Code for xAI Grok</Text>
         <Text color="gray"> [{currentModel}]</Text>
+        {offlineMode && <Text color="yellow" bold> [OFFLINE]</Text>}
       </Box>
+
+      {/* Offline Mode Banner */}
+      {offlineMode && (
+        <Box
+          borderStyle="round"
+          borderColor="yellow"
+          paddingX={1}
+          marginBottom={1}
+        >
+          <Text color="yellow">
+            OFFLINE MODE (No AI) - Run 'grok auth login' to enable AI features
+          </Text>
+        </Box>
+      )}
 
       {/* Todo Display */}
       {todos.length > 0 && <TodoDisplay todos={todos} />}

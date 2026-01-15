@@ -11,13 +11,13 @@ export class GrokClient {
   public model: string;
 
   constructor(config: GrokClientConfig = {}) {
-    const apiKey = config.apiKey
-      || process.env.GROK_API_KEY
-      || process.env.XAI_API_KEY;
+    // KEYCHAIN-ONLY: apiKey must be provided via config from CredentialStore
+    const apiKey = config.apiKey;
 
     if (!apiKey) {
       throw new Error(
-        'Missing API key. Set GROK_API_KEY or XAI_API_KEY environment variable.'
+        'Missing API key. GrokClient requires API key from keychain.\n' +
+        'Run \'grok auth login\' to store credential securely.'
       );
     }
 

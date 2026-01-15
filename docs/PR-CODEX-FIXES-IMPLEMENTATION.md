@@ -167,69 +167,75 @@ const result = await resultPromise;
 
 **Issue**: Circular symlink test fixtures created under `process.cwd()` caused Vitest's file watcher to encounter `ELOOP: too many symbolic links encountered` errors, crashing the watch mode.
 
-**Solution**: Moved fixture directory from `process.cwd()` to `os.homedir()`.
+**Solution**: Moved fixture directory from `process.cwd()` to `os.tmpdir()` and temporarily `chdir` into it for this test file. This keeps fixtures outside the watched repo tree while still satisfying the path validator's allowed-directory policy (cwd + HOME).
 
 **Fixture Creation** (beforeAll):
 
 ```typescript
 beforeAll(async () => {
   // Create temp directory for test fixtures
-  // Use $HOME instead of process.cwd() to avoid Vitest file watcher traversing
-  // circular symlinks and throwing ELOOP errors in DEV watch mode.
-  // The path validator allows both cwd and home directories.
-  const homeDir = os.homedir();
-  tempDir = await fs.mkdtemp(path.join(homeDir, '.tmp-path-validator-test-'));
-  console.log(`Test fixtures directory: ${tempDir}`);
+  // Create fixtures outside the repo tree to avoid watch-mode file traversal issues
+  // (e.g. circular symlinks causing ELOOP errors) for developers running Vitest in watch mode.
+  // We chdir into the temp directory so the path validator's allowed-dir policy (cwd + HOME)
+  // permits these test fixture paths without needing to touch the user's home directory.
+  originalCwd = process.cwd();
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'path-validator-test-'));
+  process.chdir(tempDir);
+  debugLog(`Test fixtures directory: ${tempDir}`);
 });
 ```
 
-**Uses**: `os.homedir()` (user's home directory, e.g., `/home/user`)
-**Prefix**: `.tmp-path-validator-test-`
+**Uses**: `os.tmpdir()` (system temp directory)
+**Prefix**: `path-validator-test-`
 
-**Why this matters**: Vitest watches the project directory (`process.cwd()`) for file changes. When circular symlinks exist in watched directories, the file system traversal fails with ELOOP. Moving fixtures to `$HOME` places them outside the watched directory tree.
+**Why this matters**: Vitest watches the project directory (`process.cwd()`) for file changes. When circular symlinks exist in watched directories, file system traversal can fail with ELOOP. Moving fixtures to `os.tmpdir()` places them outside the watched directory tree.
 
 #### Cleanup
 
 **Automatic cleanup** (afterAll):
 ```typescript
 afterAll(async () => {
+  if (originalCwd) {
+    process.chdir(originalCwd);
+  }
+
   // Safety guards before cleanup
   if (!tempDir) {
     console.warn('tempDir is undefined, skipping cleanup');
     return;
   }
 
-  const homeDir = os.homedir();
+  const tmpRoot = os.tmpdir();
 
   // Guard 1: Verify basename starts with expected prefix
   const basename = path.basename(tempDir);
-  if (!basename.startsWith('.tmp-path-validator-test-')) {
+  if (!basename.startsWith('path-validator-test-')) {
     throw new Error(`SAFETY: tempDir basename missing prefix: ${basename}`);
   }
 
-  // Guard 2: Never delete home directory itself
-  if (tempDir === homeDir) {
-    throw new Error('SAFETY: Refusing to delete home directory');
+  // Guard 2: Never delete the temp root itself
+  if (tempDir === tmpRoot) {
+    throw new Error('SAFETY: Refusing to delete temp root');
   }
 
-  // Guard 3: Resolve real path and verify it's under home
+  // Guard 3: Resolve real path and verify it's under the temp root
   const realTempDir = await fs.realpath(tempDir);
-  const realHomeDir = await fs.realpath(homeDir);
+  const realTmpRoot = await fs.realpath(tmpRoot);
 
-  if (realTempDir === realHomeDir) {
-    throw new Error('SAFETY: Resolved tempDir is home directory');
+  if (realTempDir === realTmpRoot) {
+    throw new Error('SAFETY: Resolved tempDir is temp root');
   }
 
-  // Guard 4: Verify resolved path is under home directory
-  const relativePath = path.relative(realHomeDir, realTempDir);
+  // Guard 4: Verify resolved path is under temp root
+  const relativePath = path.relative(realTmpRoot, realTempDir);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw new Error(`SAFETY: tempDir not under home: ${realTempDir}`);
+    throw new Error(`SAFETY: tempDir not under temp root: ${realTempDir}`);
   }
 
   // All guards passed - safe to delete
   try {
     await fs.rm(tempDir, { recursive: true, force: true });
-    console.log(`Cleaned up test fixtures directory: ${tempDir}`);
+    debugLog(`Cleaned up test fixtures directory: ${tempDir}`);
   } catch (err) {
     console.warn(`Warning: Failed to cleanup ${tempDir}:`, err);
   }
@@ -240,7 +246,7 @@ afterAll(async () => {
 
 **Manual cleanup if tests interrupted**:
 ```bash
-rm -rf "$HOME"/.tmp-path-validator-test-*
+rm -rf "$(node -p \"require('os').tmpdir()\")"/path-validator-test-*
 ```
 
 **Reference**: https://github.com/vitest-dev/vitest/issues/2821
@@ -306,7 +312,7 @@ npm test -- --run tests/unit/path-validator.test.ts
 | `src/tools/grep.ts` | Production | Pattern injection prevention, race condition fixes, improved errors |
 | `src/security/path-validator.ts` | Production | Operation-aware `.env` allowlist, symlink-aware resolution, allowed-dir enforcement |
 | `tests/unit/grep-tool.test.ts` | Test | Grep tool test coverage (26 tests), deterministic mocked fallback sequencing |
-| `tests/unit/path-validator.test.ts` | Test | Symlink regression coverage (35 tests), home-dir cleanup guards, cross-platform gating |
+| `tests/unit/path-validator.test.ts` | Test | Symlink regression coverage (35 tests), safe temp-dir cleanup guards, cross-platform gating |
 | `tests/unit/app-state-debug.test.ts` | Test | `DEBUG_STATE`-gated logging for cleaner test output |
 | `docs/PRP-SECURITY-CODE-QUALITY-FIXES.md` | Documentation | Original security PRP specification |
 | `docs/PR-CODEX-FIXES-IMPLEMENTATION.md` | Documentation | Implementation report (this document) |

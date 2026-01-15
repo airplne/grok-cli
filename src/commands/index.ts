@@ -14,6 +14,7 @@ import { modelCommand } from './handlers/model.js';
 import { clearCommand } from './handlers/clear.js';
 import { exitCommand } from './handlers/exit.js';
 import { historyCommand } from './handlers/history.js';
+import { authCommand } from './handlers/auth-tui.js';
 
 /**
  * Command Registry class
@@ -131,6 +132,7 @@ export function getRegistry(): CommandRegistry {
     registryInstance.register(clearCommand);
     registryInstance.register(exitCommand);
     registryInstance.register(historyCommand);
+    registryInstance.register(authCommand);
   }
 
   return registryInstance;
@@ -153,3 +155,4 @@ export { modelCommand } from './handlers/model.js';
 export { clearCommand } from './handlers/clear.js';
 export { exitCommand } from './handlers/exit.js';
 export { historyCommand } from './handlers/history.js';
+export { authCommand } from './handlers/auth-tui.js';

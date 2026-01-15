@@ -105,6 +105,8 @@ export interface CommandContext {
   exit: () => void;
   /** Current working directory */
   cwd: string;
+  /** Whether CLI is running in offline mode (no valid credential) */
+  offlineMode: boolean;
 }
 
 /**

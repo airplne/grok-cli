@@ -36,6 +36,16 @@ export const modelCommand: Command = {
   aliases: ['m'],
 
   async execute(args: ParsedCommand, context: CommandContext): Promise<CommandResult> {
+    // Check if in offline mode - model switching requires AI
+    if (context.offlineMode && args.args.length > 0) {
+      return {
+        success: false,
+        error: 'Cannot switch models (offline mode)\n\n' +
+               'Model selection requires AI features.\n' +
+               'Run \'grok auth login\' to enable AI and switch models.',
+      };
+    }
+
     // Handle --list flag
     if (args.flags.list || args.flags.l) {
       return {

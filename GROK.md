@@ -31,9 +31,14 @@ Run in development: `npm run dev`
 
 ## API Configuration
 
-Set your API key:
+**Keychain-Only Authentication** (No environment variables):
 ```bash
-export GROK_API_KEY="xai-your-key-here"
-# or
-export XAI_API_KEY="xai-your-key-here"
+# One-time setup - stores credential securely in system keychain
+grok auth login
+
+# Credentials expire after 7 days for security
+grok auth status   # Check expiration
+grok auth logout   # Remove credential
 ```
+
+**Note**: Environment variables (GROK_API_KEY/XAI_API_KEY) are no longer supported. Use `grok auth login` instead.

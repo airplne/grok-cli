@@ -1885,7 +1885,7 @@ ENVIRONMENT:
   XAI_API_KEY           Alternative API key env var
   GROK_LOG_LEVEL        Log level (debug, info, warn, error)
 
-For more information, visit: https://github.com/your-org/grok-cli
+For more information, visit: https://github.com/airplne/grok-cli
 `);
   process.exit(0);
 }

@@ -453,15 +453,15 @@ git push origin main
 
 ```bash
 cd /path/to/your-project
-git submodule add https://github.com/your-org/bmm-config.git bmad
+git submodule add https://github.com/example-org/bmm-config.git bmad
 git commit -m "Add BMM as submodule"
 ```
 
 **3. Team members initialize:**
 
 ```bash
-git clone https://github.com/your-org/your-project.git
-cd your-project
+git clone https://github.com/example-org/example-project.git
+cd example-project
 git submodule update --init --recursive
 # Make personal customizations in _bmad/
 ```

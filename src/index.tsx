@@ -3,6 +3,7 @@ import { render } from 'ink';
 import React from 'react';
 import { App } from './ui/app.js';
 import { getModel, getDefaultModel, getModelIds, GROK_MODELS } from './config/models.js';
+import { CredentialStore } from './auth/credential-store.js';
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
@@ -41,12 +42,18 @@ COMMANDS (in interactive mode):
   /history [count]      Show conversation history
   /exit                 Exit the CLI
 
+AUTHENTICATION:
+  grok auth login       Store API key securely in system keychain
+  grok auth logout      Remove stored API key
+  grok auth status      Check credential status and expiration
+
+  Credentials are stored encrypted in your system keychain and expire
+  after 7 days for security. Run 'grok auth login' once to get started.
+
 ENVIRONMENT:
-  GROK_API_KEY          xAI API key (required)
-  XAI_API_KEY           Alternative API key env var
   GROK_LOG_LEVEL        Log level (debug, info, warn, error)
 
-For more information, visit: https://github.com/your-org/grok-cli
+For more information, visit: https://github.com/airplne/grok-cli
 `);
   process.exit(0);
 }
@@ -104,14 +111,74 @@ const prompt = args
   .join(' ')
   .trim() || undefined;
 
-// Check for API key
-if (!process.env.GROK_API_KEY && !process.env.XAI_API_KEY) {
-  console.error('Error: Missing API key.');
-  console.error('\nSet GROK_API_KEY or XAI_API_KEY environment variable:');
-  console.error('  export GROK_API_KEY="xai-your-key-here"');
-  console.error('\nGet your API key from: https://console.x.ai/');
-  process.exit(1);
+// Handle auth commands (before TUI, before key check)
+if (args[0] === 'auth') {
+  const { handleAuthCommand } = await import('./commands/handlers/auth.js');
+  // Parse flags for auth command (e.g., --force, -f)
+  const authFlags: Record<string, string | boolean> = {};
+  for (const arg of args) {
+    if (arg === '--force' || arg === '-f') {
+      authFlags.force = true;
+    }
+  }
+  await handleAuthCommand(args.slice(1), authFlags);
+  process.exit(0); // Auth commands always exit after execution
+}
+
+// Check for API key from keychain (NO environment variable support)
+let apiKey: string | null = null;
+let offlineMode = false;
+let offlineModeReason: 'missing' | 'expired' | 'keytar-unavailable' | null = null;
+
+// Check keychain for credential
+const credential = await CredentialStore.getKey();
+
+if (credential) {
+  // Valid, non-expired credential from keychain
+  apiKey = credential.apiKey;
+  offlineMode = false;
+} else {
+  // No valid credential - determine reason
+  const status = await CredentialStore.getStatus();
+
+  if (!await CredentialStore.isAvailable()) {
+    // Keytar not available
+    offlineMode = true;
+    offlineModeReason = 'keytar-unavailable';
+  } else if (status.exists && status.expired) {
+    // Expired credential
+    offlineMode = true;
+    offlineModeReason = 'expired';
+  } else {
+    // No credential configured
+    offlineMode = true;
+    offlineModeReason = 'missing';
+  }
+}
+
+// Show offline mode banner if needed
+if (offlineMode) {
+  console.log('');
+
+  if (offlineModeReason === 'keytar-unavailable') {
+    console.log('Warning: OFFLINE MODE - System Keychain Unavailable');
+    console.log('   Credential storage requires system dependencies.');
+    console.log('   Install build tools to enable AI features:');
+    console.log('     - macOS: xcode-select --install');
+    console.log('     - Linux: sudo apt install build-essential libsecret-1-dev');
+    console.log('     - Windows: npm install --global windows-build-tools');
+  } else if (offlineModeReason === 'expired') {
+    console.log('Warning: OFFLINE MODE - Credential Expired');
+    console.log('   Your credential expired. Run \'grok auth login\' to re-authenticate.');
+    console.log('   Credentials expire every 7 days for security.');
+  } else {
+    console.log('Info: OFFLINE MODE (No AI)');
+    console.log('   Run \'grok auth login\' to enable AI features.');
+  }
+
+  console.log('   Tools available: grep, read, write, edit, glob, bash, todo');
+  console.log('');
 }
 
 // Render the app
-render(<App initialPrompt={prompt} model={model} />);
+render(<App initialPrompt={prompt} model={model} apiKey={apiKey} offlineMode={offlineMode} />);

@@ -14,6 +14,7 @@ export interface AgentEvent {
 
 export interface AgentOptions {
   model?: string;
+  apiKey?: string;  // API key from keychain
   maxRounds?: number;
   cwd?: string;
 }
@@ -28,7 +29,10 @@ export class GrokAgent {
   private cwd: string;
 
   constructor(options: AgentOptions = {}) {
-    this.client = new GrokClient({ model: options.model });
+    this.client = new GrokClient({
+      model: options.model,
+      apiKey: options.apiKey  // Pass keychain API key to GrokClient
+    });
     this.maxRounds = options.maxRounds || 100;
     this.cwd = options.cwd || process.cwd();
   }

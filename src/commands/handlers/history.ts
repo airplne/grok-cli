@@ -30,6 +30,17 @@ export const historyCommand: Command = {
   async execute(args: ParsedCommand, context: CommandContext): Promise<CommandResult> {
     const history = context.getHistory();
 
+    // In offline mode, history might be empty or tool-only
+    if (context.offlineMode && history.length === 0) {
+      return {
+        success: true,
+        output: 'No history available (offline mode)\n\n' +
+                'AI conversation history is not available in offline mode.\n' +
+                'Run \'grok auth login\' to enable AI features.',
+        action: { type: 'none' },
+      };
+    }
+
     if (history.length === 0) {
       return {
         success: true,

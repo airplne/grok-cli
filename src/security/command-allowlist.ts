@@ -91,6 +91,9 @@ const ALLOWED_COMMANDS: ReadonlySet<string> = new Set([
 
   // Other dev tools
   'node', 'python', 'python3', 'ruby', 'rustc', 'gcc', 'g++', 'clang',
+
+  // grok-cli self-reference (safe utility commands only)
+  'grok',
 ]);
 
 // ============================================================================
@@ -152,6 +155,13 @@ const DANGEROUS_SUBCOMMANDS: DangerousPattern[] = [
       /\s-e\s/,
     ],
     reason: 'Interpreter with inline code execution',
+  },
+  {
+    command: 'grok',
+    patterns: [
+      /^grok\s*$/,  // Block bare "grok" (interactive mode causes recursion)
+    ],
+    reason: 'Interactive grok session not allowed from Bash tool; use the current session or run grok in your terminal',
   },
 ];
 

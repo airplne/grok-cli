@@ -30,18 +30,15 @@ export class AuthService {
   static async login(): Promise<AuthResult> {
     try {
       // Check if keytar is available
-      const keychainAvailable = await CredentialStore.isAvailable();
-      if (!keychainAvailable) {
+      const availability = await CredentialStore.getAvailability();
+      if (!availability.available) {
         return {
           success: false,
           message:
-            'Error: System keychain unavailable\n' +
-            'Credential storage requires keytar (native module).\n' +
-            'Install build tools and retry:\n' +
-            '  - macOS: xcode-select --install\n' +
-            '  - Linux: sudo apt install build-essential libsecret-1-dev\n' +
-            '  - Windows: npm install --global windows-build-tools\n\n' +
-            'Then run: npm rebuild keytar',
+            'Error: System keychain unavailable\n\n' +
+            availability.remediation + '\n\n' +
+            'Info: After fixing, run: grok auth doctor\n' +
+            '   Then try: grok auth login',
         };
       }
 
@@ -131,15 +128,17 @@ export class AuthService {
       const status = await CredentialStore.getStatus();
 
       if (!keychainAvailable) {
+        const availability = await CredentialStore.getAvailability();
+        let message = 'Error: System keychain unavailable\n';
+        message += 'Info: Offline mode active\n\n';
+        if (!availability.available) {
+          message += availability.remediation + '\n\n';
+          message += 'Info: After fixing, run: grok auth doctor';
+        }
+
         return {
           configured: false,
-          message:
-            'Error: System keychain unavailable\n' +
-            'Info: Offline mode active\n' +
-            'Info: Install build tools to enable credential storage:\n' +
-            '    - macOS: xcode-select --install\n' +
-            '    - Linux: sudo apt install build-essential libsecret-1-dev\n' +
-            '    - Windows: npm install --global windows-build-tools',
+          message,
           details: {
             provider: 'None',
             keychainAvailable: false,
@@ -263,5 +262,46 @@ export class AuthService {
         resolve(normalized === 'y' || normalized === 'yes');
       });
     });
+  }
+
+  /**
+   * Diagnose keychain availability and provide troubleshooting info
+   */
+  static async doctor(): Promise<AuthResult> {
+    const availability = await CredentialStore.getAvailability();
+    const nodeVersion = process.version;
+    const platform = process.platform;
+
+    if (availability.available) {
+      return {
+        success: true,
+        message:
+          'Keychain Diagnostics\n\n' +
+          'System keychain is available\n' +
+          `   Platform: ${platform}\n` +
+          `   Node version: ${nodeVersion}\n\n` +
+          "You can use 'grok auth login' to store credentials securely.",
+      };
+    }
+
+    // Keychain not available - show diagnostics
+    const { reason, errorMessage, remediation } = availability;
+
+    return {
+      success: false,
+      message:
+        'Keychain Diagnostics\n\n' +
+        'System keychain is NOT available\n' +
+        `   Platform: ${platform}\n` +
+        `   Node version: ${nodeVersion}\n` +
+        `   Reason: ${reason}\n\n` +
+        'Error details:\n' +
+        `   ${errorMessage}\n\n` +
+        'Remediation:\n\n' +
+        remediation +
+        '\n\n' +
+        "After fixing, run: grok auth doctor\n" +
+        "   Then try: grok auth login",
+    };
   }
 }

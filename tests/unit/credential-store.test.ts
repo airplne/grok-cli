@@ -11,12 +11,13 @@ const mockSetPassword = vi.fn();
 const mockGetPassword = vi.fn();
 const mockDeletePassword = vi.fn();
 
-// Mock keytar module
+// Mock keytar module with default export (matches real ESM/CJS interop)
 vi.mock('keytar', () => ({
-  // CredentialStore uses `await import('keytar')` and calls named exports.
-  setPassword: mockSetPassword,
-  getPassword: mockGetPassword,
-  deletePassword: mockDeletePassword,
+  default: {
+    setPassword: mockSetPassword,
+    getPassword: mockGetPassword,
+    deletePassword: mockDeletePassword,
+  }
 }));
 
 describe('CredentialStore', () => {
@@ -129,6 +130,66 @@ describe('CredentialStore', () => {
   describe('getTTLDays()', () => {
     it('returns 7 days', () => {
       expect(CredentialStore.getTTLDays()).toBe(7);
+    });
+  });
+
+  describe('getAvailability()', () => {
+    it('returns available:true when keytar loads', async () => {
+      mockGetPassword.mockResolvedValue(null);
+
+      const availability = await CredentialStore.getAvailability();
+
+      expect(availability.available).toBe(true);
+    });
+
+    it('returns available:false with remediation when keytar fails', async () => {
+      // Force keytar to fail by mocking the module to throw
+      vi.resetModules();
+      vi.doMock('keytar', () => {
+        throw new Error("Cannot find module '../build/Release/keytar.node'");
+      });
+
+      // Re-import to trigger the mock failure
+      const { CredentialStore: FailingStore } = await import('../../src/auth/credential-store.js');
+
+      const availability = await FailingStore.getAvailability();
+
+      expect(availability.available).toBe(false);
+      if (!availability.available) {
+        expect(availability.reason).toBeDefined();
+        expect(availability.errorMessage).toBeDefined();
+        expect(availability.remediation).toContain('build');
+      }
+    });
+  });
+
+  describe('ESM/CJS interop regression', () => {
+    it('works when keytar exports are only on default (real Node ESM behavior)', async () => {
+      // This test verifies the fix for "kt.setPassword is not a function"
+      // Real keytar in Node ESM provides full API under .default
+      vi.resetModules();
+
+      const mockFns = {
+        setPassword: vi.fn().mockResolvedValue(undefined),
+        getPassword: vi.fn().mockResolvedValue(null),
+        deletePassword: vi.fn().mockResolvedValue(true),
+      };
+
+      vi.doMock('keytar', () => ({
+        default: mockFns,
+        // Only partial named exports (matches real behavior)
+        getPassword: mockFns.getPassword,
+      }));
+
+      const { CredentialStore: FreshStore } = await import('../../src/auth/credential-store.js');
+
+      // Verify setKey works (this was the failing case)
+      await FreshStore.setKey('test-key');
+      expect(mockFns.setPassword).toHaveBeenCalled();
+
+      // Verify availability reports true
+      const availability = await FreshStore.getAvailability();
+      expect(availability.available).toBe(true);
     });
   });
 });

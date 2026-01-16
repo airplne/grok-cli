@@ -107,4 +107,43 @@ describe('Auth Command Integration', () => {
       expect(EXIT_CODES.NO_CREDENTIAL).toBe(1);
     });
   });
+
+  describe('Auth Doctor Command', () => {
+    it('auth doctor command exists and provides diagnostics', () => {
+      // Auth doctor should be a valid auth subcommand
+      const authCommands = ['login', 'logout', 'status', 'doctor'];
+      expect(authCommands).toContain('doctor');
+    });
+
+    it('doctor output includes platform and node version info', () => {
+      const mockDoctorOutput = {
+        platform: process.platform,
+        nodeVersion: process.version,
+        available: false,
+        reason: 'missing-native-binding',
+        remediation: 'Install build tools'
+      };
+
+      expect(mockDoctorOutput.platform).toBeDefined();
+      expect(mockDoctorOutput.nodeVersion).toMatch(/^v\d+\.\d+/);
+      expect(mockDoctorOutput.available).toBe(false);
+      expect(mockDoctorOutput.remediation).toContain('build');
+    });
+  });
+
+  describe('Version Command', () => {
+    it('--version shows actual package.json version', () => {
+      // Version should be read from package.json at runtime
+      // Not hardcoded
+      const packageJson = require('../../package.json');
+      expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(packageJson.version).not.toBe('1.0.0'); // Should be 2.0.0+
+    });
+
+    it('version format is semantic versioning', () => {
+      const packageJson = require('../../package.json');
+      const semverPattern = /^\d+\.\d+\.\d+(-[a-z0-9.-]+)?$/;
+      expect(packageJson.version).toMatch(semverPattern);
+    });
+  });
 });

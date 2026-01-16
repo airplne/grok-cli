@@ -35,7 +35,7 @@ rg -n "process\.env\.(GROK_API_KEY|XAI_API_KEY)" src
 
 ---
 
-### 2. ✅ No --stdin Credential Entry Paths
+### 2. ✅ No stdin/pipes Credential Entry Paths
 
 **Command**:
 ```bash
@@ -47,7 +47,7 @@ git ls-files | xargs grep -n -- '--st[d]in' 2>/dev/null
 **Status**: ✅ **PASS** - No stdin/pipes credential injection paths in tracked files
 
 **What this confirms**:
-- No `--stdin` flag support
+- No stdin/pipes credential flag support
 - No stdin/pipes credential workflows
 - Interactive `grok auth login` only
 
@@ -138,7 +138,7 @@ All critical security requirements verified on merged main:
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | No env var authentication | ✅ VERIFIED | 0 matches for `process.env.(GROK_API_KEY\|XAI_API_KEY)` in src/ |
-| No stdin/pipes credential entry | ✅ VERIFIED | 0 matches for `--stdin` in tracked files |
+| No stdin/pipes credential entry | ✅ VERIFIED | 0 matches for `--st[d]in` in tracked files |
 | Keychain-only storage | ✅ VERIFIED | `src/auth/credential-store.ts` uses keytar only |
 | 7-day TTL enforced | ✅ VERIFIED | `TTL_MS = 7 * 24 * 60 * 60 * 1000` in credential-store.ts |
 | No auto-extension | ✅ VERIFIED | `getKey()` never updates expiresAt |

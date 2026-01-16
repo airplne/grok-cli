@@ -246,7 +246,62 @@ grok auth status
 /auth login   # Store API key (restart to enable AI)
 /auth logout  # Remove credential (restart to disable AI)
 /auth status  # Show credential status and expiration
+/auth doctor  # Diagnose keychain availability
 ```
+
+#### /auth doctor
+
+**(Both CLI and TUI)**
+
+Diagnose keychain availability and get platform-specific troubleshooting steps.
+
+```bash
+grok auth doctor
+
+# TUI mode
+/auth doctor
+```
+
+**Output examples**:
+
+**Keychain available:**
+```
+Keychain Diagnostics
+
+[OK] System keychain is available
+   Platform: linux
+   Node version: v18.19.0
+
+You can use `grok auth login` to store credentials securely.
+```
+
+**Keychain unavailable (Linux):**
+```
+Keychain Diagnostics
+
+[ERROR] System keychain is NOT available
+   Platform: linux
+   Node version: v18.19.0
+   Reason: missing-native-binding
+
+Error details:
+   Cannot find module '../build/Release/keytar.node'
+
+Remediation:
+
+Install build tools and libsecret:
+  sudo apt update
+  sudo apt install -y build-essential libsecret-1-dev
+
+Then rebuild keytar:
+  cd /home/user/grok-cli
+  npm rebuild keytar
+
+After fixing, run: grok auth doctor
+   Then try: grok auth login
+```
+
+Use this command to diagnose keytar issues before attempting `grok auth login`.
 
 #### /model
 
@@ -432,4 +487,4 @@ Stored as JSON:
 ---
 
 **Last Updated**: 2026-01-14
-**grok-cli version**: 1.0.0+offline-first
+**grok-cli version**: 2.0.0

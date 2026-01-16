@@ -16,7 +16,7 @@ export type KeychainAvailability =
   | { available: true }
   | {
       available: false;
-      reason: 'missing-native-binding' | 'missing-system-deps' | 'import-failed';
+      reason: 'missing-native-binding' | 'missing-system-deps' | 'import-failed' | 'missing-api-methods';
       errorMessage: string;
       remediation: string;
     };
@@ -45,7 +45,19 @@ async function getKeytar(): Promise<typeof keytar | null> {
   if (keytarError) return null;
 
   try {
-    keytarModule = await import('keytar');
+    const imported = await import('keytar');
+    // Normalize ESM/CJS interop: CJS exports are under .default
+    const resolved = (imported as any).default ?? imported;
+
+    // Validate required methods exist
+    if (typeof resolved.getPassword !== 'function' ||
+        typeof resolved.setPassword !== 'function' ||
+        typeof resolved.deletePassword !== 'function') {
+      keytarError = new Error('keytar loaded but missing required methods (getPassword, setPassword, deletePassword). ESM/CJS interop may have failed.');
+      return null;
+    }
+
+    keytarModule = resolved;
     return keytarModule;
   } catch (err) {
     keytarError = err as Error;
@@ -244,6 +256,16 @@ export class CredentialStore {
     const errorMsg = keytarError.message || '';
     const errorCode = (keytarError as NodeJS.ErrnoException).code;
 
+    // Check for missing API methods
+    if (errorMsg.includes('missing required methods')) {
+      return {
+        available: false,
+        reason: 'missing-api-methods',
+        errorMessage: errorMsg,
+        remediation: this.getRemediation('missing-api-methods'),
+      };
+    }
+
     // Classify based on error
     if (errorCode === 'MODULE_NOT_FOUND' && errorMsg.includes('keytar.node')) {
       return {
@@ -268,6 +290,18 @@ export class CredentialStore {
    */
   private static getRemediation(reason: string): string {
     const platform = process.platform;
+
+    if (reason === 'missing-api-methods') {
+      return [
+        'Keytar loaded but required methods are missing.',
+        'This may be an ESM/CJS interop issue.',
+        '',
+        'Try reinstalling keytar:',
+        '  npm uninstall keytar',
+        '  npm install keytar@7.9.0 --save-exact',
+        '  npm rebuild keytar',
+      ].join('\n');
+    }
 
     if (reason === 'missing-native-binding') {
       // Native binding wasn't built - need build tools + rebuild

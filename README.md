@@ -213,4 +213,26 @@ Contributions welcome! Please ensure:
 
 ---
 
+## Troubleshooting
+
+### Keychain Setup Issues
+
+If `grok auth login` fails with "System keychain unavailable":
+
+```bash
+# Run diagnostics
+grok auth doctor
+
+# Follow the platform-specific remediation steps shown
+# Then try login again
+grok auth login
+```
+
+**Common causes**:
+- Missing build tools (gcc, make, etc.)
+- Missing libsecret-1-dev (Linux)
+- Missing Xcode Command Line Tools (macOS)
+
+---
+
 **Made with ❤️ using xAI Grok**

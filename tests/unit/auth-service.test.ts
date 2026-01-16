@@ -73,6 +73,12 @@ describe('AuthService', () => {
 
     it('reports keychain unavailable', async () => {
       vi.mocked(CredentialStore.isAvailable).mockResolvedValue(false);
+      vi.mocked(CredentialStore.getAvailability).mockResolvedValue({
+        available: false,
+        reason: 'missing-native-binding',
+        errorMessage: "Cannot find module '../build/Release/keytar.node'",
+        remediation: 'Install build tools and rebuild keytar'
+      });
 
       const result = await AuthService.status();
 

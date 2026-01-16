@@ -131,4 +131,34 @@ describe('CredentialStore', () => {
       expect(CredentialStore.getTTLDays()).toBe(7);
     });
   });
+
+  describe('getAvailability()', () => {
+    it('returns available:true when keytar loads', async () => {
+      mockGetPassword.mockResolvedValue(null);
+
+      const availability = await CredentialStore.getAvailability();
+
+      expect(availability.available).toBe(true);
+    });
+
+    it('returns available:false with remediation when keytar fails', async () => {
+      // Force keytar to fail by mocking the module to throw
+      vi.resetModules();
+      vi.doMock('keytar', () => {
+        throw new Error("Cannot find module '../build/Release/keytar.node'");
+      });
+
+      // Re-import to trigger the mock failure
+      const { CredentialStore: FailingStore } = await import('../../src/auth/credential-store.js');
+
+      const availability = await FailingStore.getAvailability();
+
+      expect(availability.available).toBe(false);
+      if (!availability.available) {
+        expect(availability.reason).toBeDefined();
+        expect(availability.errorMessage).toBeDefined();
+        expect(availability.remediation).toContain('build');
+      }
+    });
+  });
 });

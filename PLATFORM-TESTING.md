@@ -176,6 +176,32 @@ sudo apt update
 sudo apt install build-essential libsecret-1-dev
 ```
 
+### Verifying libsecret Installation
+
+**Before testing keytar**, verify system dependencies:
+
+```bash
+# Check if libsecret is installed
+dpkg -l | grep libsecret-1-dev
+
+# If not found, install:
+sudo apt update
+sudo apt install -y build-essential libsecret-1-dev
+
+# Rebuild keytar
+npm rebuild keytar
+
+# Verify keytar loads
+node -e "import('keytar').then(()=>console.log('[OK] keytar OK')).catch(e=>console.error('[ERROR] keytar failed:', e.message))"
+```
+
+**Use `grok auth doctor`** for automated diagnostics:
+
+```bash
+grok auth doctor
+# Shows keychain availability and remediation steps
+```
+
 **Fedora/RHEL**:
 ```bash
 sudo dnf install @development-tools libsecret-devel
@@ -425,4 +451,4 @@ echo "=== Test Complete ==="
 ---
 
 **Last Updated**: 2026-01-15
-**Applies to**: grok-cli v1.0.0+ (offline-first)
+**Applies to**: grok-cli v2.0.0+ (offline-first)

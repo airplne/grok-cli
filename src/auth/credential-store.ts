@@ -9,6 +9,18 @@
 
 import type keytar from 'keytar';
 
+/**
+ * Keychain availability status with structured error information
+ */
+export type KeychainAvailability =
+  | { available: true }
+  | {
+      available: false;
+      reason: 'missing-native-binding' | 'missing-system-deps' | 'import-failed';
+      errorMessage: string;
+      remediation: string;
+    };
+
 const SERVICE_NAME = 'grok-cli';
 const ACCOUNT_METADATA = 'api-key-metadata';
 
@@ -26,6 +38,7 @@ let keytarError: Error | null = null;
 
 /**
  * Lazy-load keytar to handle build failures gracefully
+ * NOTE: Does NOT log errors - callers use getAvailability() for formatted messages
  */
 async function getKeytar(): Promise<typeof keytar | null> {
   if (keytarModule) return keytarModule;
@@ -36,12 +49,7 @@ async function getKeytar(): Promise<typeof keytar | null> {
     return keytarModule;
   } catch (err) {
     keytarError = err as Error;
-    console.warn('Warning: System keychain unavailable (keytar failed to load)');
-    console.warn('   Credential storage disabled. CLI will run in offline mode.');
-    console.warn('   To enable AI features, install system dependencies:');
-    console.warn('   - macOS: xcode-select --install');
-    console.warn('   - Linux: sudo apt install build-essential libsecret-1-dev');
-    console.warn('   - Windows: npm install --global windows-build-tools');
+    // Store error, but don't log here (callers will format appropriate messages)
     return null;
   }
 }
@@ -210,5 +218,104 @@ export class CredentialStore {
    */
   static getTTLDays(): number {
     return 7;
+  }
+
+  /**
+   * Get detailed keychain availability status
+   * Returns structured data for UX formatting
+   */
+  static async getAvailability(): Promise<KeychainAvailability> {
+    const kt = await getKeytar();
+
+    if (kt) {
+      return { available: true };
+    }
+
+    // Keytar failed to load - classify the error
+    if (!keytarError) {
+      return {
+        available: false,
+        reason: 'import-failed',
+        errorMessage: 'Unknown keytar import failure',
+        remediation: this.getRemediation('import-failed'),
+      };
+    }
+
+    const errorMsg = keytarError.message || '';
+    const errorCode = (keytarError as NodeJS.ErrnoException).code;
+
+    // Classify based on error
+    if (errorCode === 'MODULE_NOT_FOUND' && errorMsg.includes('keytar.node')) {
+      return {
+        available: false,
+        reason: 'missing-native-binding',
+        errorMessage: errorMsg,
+        remediation: this.getRemediation('missing-native-binding'),
+      };
+    }
+
+    // Default classification
+    return {
+      available: false,
+      reason: 'import-failed',
+      errorMessage: errorMsg,
+      remediation: this.getRemediation('import-failed'),
+    };
+  }
+
+  /**
+   * Get platform-specific remediation steps
+   */
+  private static getRemediation(reason: string): string {
+    const platform = process.platform;
+
+    if (reason === 'missing-native-binding') {
+      // Native binding wasn't built - need build tools + rebuild
+      switch (platform) {
+        case 'darwin': // macOS
+          return [
+            'Install Xcode Command Line Tools:',
+            '  xcode-select --install',
+            '',
+            'Then rebuild keytar:',
+            '  cd ' + process.cwd(),
+            '  npm rebuild keytar',
+          ].join('\n');
+
+        case 'linux':
+          return [
+            'Install build tools and libsecret:',
+            '  sudo apt update',
+            '  sudo apt install -y build-essential libsecret-1-dev',
+            '',
+            'Then rebuild keytar:',
+            '  cd ' + process.cwd(),
+            '  npm rebuild keytar',
+          ].join('\n');
+
+        case 'win32': // Windows
+          return [
+            'Install Visual Studio Build Tools (C++ workload):',
+            '  Download from: https://visualstudio.microsoft.com/downloads/',
+            '',
+            'Then rebuild keytar:',
+            '  cd ' + process.cwd().replace(/\//g, '\\'),
+            '  npm rebuild keytar',
+          ].join('\n');
+
+        default:
+          return [
+            'Install system build tools for your platform, then:',
+            '  npm rebuild keytar',
+          ].join('\n');
+      }
+    }
+
+    // Generic fallback
+    return [
+      'Keytar native module failed to load.',
+      'Install system development tools and retry:',
+      '  npm rebuild keytar',
+    ].join('\n');
   }
 }

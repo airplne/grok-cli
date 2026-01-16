@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { render } from 'ink';
 import React from 'react';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { App } from './ui/app.js';
 import { getModel, getDefaultModel, getModelIds, GROK_MODELS } from './config/models.js';
 import { CredentialStore } from './auth/credential-store.js';
@@ -46,6 +48,7 @@ AUTHENTICATION:
   grok auth login       Store API key securely in system keychain
   grok auth logout      Remove stored API key
   grok auth status      Check credential status and expiration
+  grok auth doctor      Diagnose keychain availability
 
   Credentials are stored encrypted in your system keychain and expire
   after 7 days for security. Run 'grok auth login' once to get started.
@@ -60,7 +63,16 @@ For more information, visit: https://github.com/airplne/grok-cli
 
 // Handle --version flag
 if (args.includes('--version') || args.includes('-v')) {
-  console.log('grok-cli version 1.0.0');
+  try {
+    // Read version from package.json at runtime
+    const packageJsonUrl = new URL('../package.json', import.meta.url);
+    const packageJsonPath = fileURLToPath(packageJsonUrl);
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    console.log(`grok-cli version ${packageJson.version}`);
+  } catch (err) {
+    // Fallback if package.json can't be read
+    console.log('grok-cli version unknown');
+  }
   process.exit(0);
 }
 
@@ -161,12 +173,13 @@ if (offlineMode) {
   console.log('');
 
   if (offlineModeReason === 'keytar-unavailable') {
+    const availability = await CredentialStore.getAvailability();
     console.log('Warning: OFFLINE MODE - System Keychain Unavailable');
-    console.log('   Credential storage requires system dependencies.');
-    console.log('   Install build tools to enable AI features:');
-    console.log('     - macOS: xcode-select --install');
-    console.log('     - Linux: sudo apt install build-essential libsecret-1-dev');
-    console.log('     - Windows: npm install --global windows-build-tools');
+    if (!availability.available) {
+      console.log('\n' + availability.remediation);
+      console.log('\nℹ️  After fixing, run: grok auth doctor');
+      console.log('   Then try: grok auth login');
+    }
   } else if (offlineModeReason === 'expired') {
     console.log('Warning: OFFLINE MODE - Credential Expired');
     console.log('   Your credential expired. Run \'grok auth login\' to re-authenticate.');

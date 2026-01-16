@@ -76,6 +76,34 @@ export abstract class BaseTool {
         description: zodType.description,
       };
     }
+    if (zodType instanceof z.ZodObject) {
+      const shape = zodType.shape;
+      const properties: Record<string, unknown> = {};
+      const required: string[] = [];
+
+      for (const [key, value] of Object.entries(shape)) {
+        const innerType = value as z.ZodTypeAny;
+        properties[key] = this.zodTypeToJsonSchema(innerType);
+
+        if (!innerType.isOptional()) {
+          required.push(key);
+        }
+      }
+
+      return {
+        type: 'object',
+        properties,
+        required: required.length > 0 ? required : undefined,
+        description: zodType.description,
+      };
+    }
+    if (zodType instanceof z.ZodEnum) {
+      return {
+        type: 'string',
+        enum: zodType.options,
+        description: zodType.description,
+      };
+    }
     if (zodType instanceof z.ZodOptional) {
       return this.zodTypeToJsonSchema(zodType.unwrap());
     }

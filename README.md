@@ -84,6 +84,8 @@ grok auth logout
 grok auth logout --force
 ```
 
+> **Security Note**: Login is TTY-only. Piping or redirecting credentials via stdin is refused for security.
+
 ### CLI Usage
 
 ```bash

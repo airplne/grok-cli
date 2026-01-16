@@ -194,6 +194,21 @@ steps:
 
 ---
 
+### TTY-Only Login (v2.0.2+)
+
+Login now enforces TTY mode. Attempts to pipe credentials will be refused:
+
+```bash
+# These will fail (by design):
+echo "xai-key" | grok auth login  # ❌ Refused
+grok auth login < keyfile.txt     # ❌ Refused
+
+# This works:
+grok auth login                   # ✅ Interactive prompt
+```
+
+---
+
 ## Common Questions
 
 ### Q: Can I still use environment variables?

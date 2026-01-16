@@ -28,6 +28,17 @@ export class AuthService {
    * Interactive login - prompts for API key and stores it
    */
   static async login(): Promise<AuthResult> {
+    // TTY-only guard: Refuse stdin/pipes to prevent credential piping
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      return {
+        success: false,
+        message:
+          'Error: Interactive login required (TTY only)\n' +
+          'Error: Refusing to read credentials from stdin/pipes\n\n' +
+          "Tip: Run 'grok auth doctor' first, then 'grok auth login' in a normal terminal.",
+      };
+    }
+
     try {
       // Check if keytar is available
       const availability = await CredentialStore.getAvailability();

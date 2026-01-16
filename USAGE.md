@@ -57,6 +57,17 @@ grok auth login
 
 ---
 
+### Security: TTY-Only Login
+
+For security, `grok auth login` requires an interactive terminal (TTY). This prevents:
+- Piping credentials: `echo "key" | grok auth login` ❌
+- Redirecting from files: `grok auth login < keyfile.txt` ❌
+- Script automation with credentials
+
+If you see "Interactive login required (TTY only)", ensure you're running in a normal terminal session, not a pipe or script.
+
+---
+
 ### Check Status
 
 ```bash

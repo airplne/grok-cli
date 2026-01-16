@@ -14,6 +14,59 @@ describe('AuthService', () => {
     vi.clearAllMocks();
   });
 
+  describe('TTY-only guard', () => {
+    it('rejects login when stdin is not a TTY (prevents piping)', async () => {
+      // Save original value
+      const originalIsTTY = process.stdin.isTTY;
+
+      // Mock non-TTY stdin (simulates piping)
+      Object.defineProperty(process.stdin, 'isTTY', {
+        value: false,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        const result = await AuthService.login();
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('Interactive login required');
+        expect(result.message).toContain('TTY only');
+        expect(result.message).toContain('stdin/pipes');
+      } finally {
+        // Restore original value
+        Object.defineProperty(process.stdin, 'isTTY', {
+          value: originalIsTTY,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    it('rejects login when stdout is not a TTY', async () => {
+      const originalIsTTY = process.stdout.isTTY;
+
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: false,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        const result = await AuthService.login();
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('Interactive login required');
+      } finally {
+        Object.defineProperty(process.stdout, 'isTTY', {
+          value: originalIsTTY,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+  });
+
   describe('status()', () => {
     it('reports valid credential with expiration', async () => {
       const now = Date.now();

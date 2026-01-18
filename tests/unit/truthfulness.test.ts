@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import { tools } from '../../src/tools/index.js';
 import { KNOWN_TOOL_NAMES } from '../../src/tools/tool-names.js';
+import { formatSubagentRunHeader } from '../../src/tools/task.js';
 import { loadSubagentDefinition, resolveSubagentName, listAvailableSubagents } from '../../src/agents/subagent-loader.js';
 import { SUBAGENT_ALIASES } from '../../src/agents/types.js';
 import { computeToolCallEvidence } from '../../src/agent/grok-agent.js';
@@ -446,6 +447,64 @@ describe('Subagent System', () => {
 
       expect(evidence.subagentsSpawned).toBe(0);
       expect(evidence.summary).toContain('Subagents spawned: 0 (subagents cannot spawn subagents)');
+    });
+  });
+
+  describe('Task Output Subagent Run Header', () => {
+    // These tests verify that successful Task outputs include a clear
+    // SUBAGENT RUN header that makes spawning unambiguous
+    const requiredHeaderFields = [
+      /=== SUBAGENT RUN \(system\) ===/,
+      /subagent_type:/,
+      /agentId:/,
+      /allowedTools:/,
+      /subagent evidence shows "Subagents spawned: 0"/,
+    ];
+
+    it('should generate header with all required fields', () => {
+      const header = formatSubagentRunHeader({
+        success: true,
+        output: '',
+        agentId: 'subagent-123-abc',
+        subagentType: 'explore',
+        allowedTools: ['Read', 'Grep', 'Glob'],
+      });
+
+      for (const pattern of requiredHeaderFields) {
+        expect(pattern.test(header), `Should contain: ${pattern}`).toBe(true);
+      }
+    });
+
+    it('should NOT flag Task output without the header as valid', () => {
+      const outputWithoutHeader = `
+Some subagent text without a proper header.
+
+=== EVIDENCE ===
+...
+`;
+
+      const hasAllFields = requiredHeaderFields.every(pattern => pattern.test(outputWithoutHeader));
+      expect(hasAllFields).toBe(false);
+    });
+
+    it('should detect subagent_type field', () => {
+      const output = 'subagent_type: code-reviewer';
+      expect(/subagent_type:/.test(output)).toBe(true);
+    });
+
+    it('should detect agentId field', () => {
+      const output = 'agentId: subagent-1768766355-x9fk2a';
+      expect(/agentId:/.test(output)).toBe(true);
+    });
+
+    it('should detect allowedTools field', () => {
+      const output = 'allowedTools: Read, Write, Bash';
+      expect(/allowedTools:/.test(output)).toBe(true);
+    });
+
+    it('should detect explanatory note about subagent evidence', () => {
+      const note = 'note: subagent evidence shows "Subagents spawned: 0" because subagents cannot spawn subagents';
+      expect(/subagent evidence shows "Subagents spawned: 0"/.test(note)).toBe(true);
     });
   });
 });

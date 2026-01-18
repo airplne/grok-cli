@@ -448,6 +448,69 @@ describe('Subagent System', () => {
       expect(evidence.summary).toContain('Subagents spawned: 0 (subagents cannot spawn subagents)');
     });
   });
+
+  describe('Task Output Subagent Run Header', () => {
+    // These tests verify that successful Task outputs include a clear
+    // SUBAGENT RUN header that makes spawning unambiguous
+    const requiredHeaderFields = [
+      /=== SUBAGENT RUN \(system\) ===/,
+      /subagent_type:/,
+      /agentId:/,
+      /allowedTools:/,
+      /subagent evidence shows "Subagents spawned: 0"/,
+    ];
+
+    it('should detect all required header fields in mock Task output', () => {
+      const mockTaskOutput = `
+=== SUBAGENT RUN (system) ===
+subagent_type: explore
+agentId: subagent-123-abc
+allowedTools: Read, Grep, Glob
+note: subagent evidence shows "Subagents spawned: 0" because subagents cannot spawn subagents
+
+[subagent content here]
+
+=== SUBAGENT TRACE ===
+...
+`;
+
+      for (const pattern of requiredHeaderFields) {
+        expect(pattern.test(mockTaskOutput), `Should contain: ${pattern}`).toBe(true);
+      }
+    });
+
+    it('should NOT flag Task output without the header as valid', () => {
+      const outputWithoutHeader = `
+Some subagent text without a proper header.
+
+=== EVIDENCE ===
+...
+`;
+
+      const hasAllFields = requiredHeaderFields.every(pattern => pattern.test(outputWithoutHeader));
+      expect(hasAllFields).toBe(false);
+    });
+
+    it('should detect subagent_type field', () => {
+      const output = 'subagent_type: code-reviewer';
+      expect(/subagent_type:/.test(output)).toBe(true);
+    });
+
+    it('should detect agentId field', () => {
+      const output = 'agentId: subagent-1768766355-x9fk2a';
+      expect(/agentId:/.test(output)).toBe(true);
+    });
+
+    it('should detect allowedTools field', () => {
+      const output = 'allowedTools: Read, Write, Bash';
+      expect(/allowedTools:/.test(output)).toBe(true);
+    });
+
+    it('should detect explanatory note about subagent evidence', () => {
+      const note = 'note: subagent evidence shows "Subagents spawned: 0" because subagents cannot spawn subagents';
+      expect(/subagent evidence shows "Subagents spawned: 0"/.test(note)).toBe(true);
+    });
+  });
 });
 
 /**

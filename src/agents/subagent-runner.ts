@@ -142,6 +142,8 @@ export async function runSubagent(
       output: '',
       error: 'AI disabled (offline mode). Cannot run subagents without API key.',
       agentId,
+      subagentType,
+      allowedTools: [],
     };
   }
 
@@ -155,6 +157,8 @@ export async function runSubagent(
       output: '',
       error: err instanceof Error ? err.message : `Failed to load subagent "${subagentType}"`,
       agentId,
+      subagentType,
+      allowedTools: [],
     };
   }
 
@@ -277,6 +281,8 @@ export async function runSubagent(
       success: true,
       output,
       agentId,
+      subagentType,
+      allowedTools: definition.tools,
       evidence,
       trace,
     };
@@ -292,6 +298,8 @@ export async function runSubagent(
       output,
       error: error instanceof Error ? error.message : 'Subagent execution failed',
       agentId,
+      subagentType,
+      allowedTools: definition.tools,
       evidence,
       trace,
     };

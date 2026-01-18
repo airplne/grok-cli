@@ -9,7 +9,23 @@ import { z } from 'zod';
 import { BaseTool, ToolResult, ToolContext } from './base-tool.js';
 import { runSubagent } from '../agents/subagent-runner.js';
 import { listAvailableSubagents, resolveSubagentName } from '../agents/subagent-loader.js';
-import { SUBAGENT_ALIASES } from '../agents/types.js';
+import { SUBAGENT_ALIASES, SubagentResult } from '../agents/types.js';
+
+/**
+ * Format subagent run header for Task output.
+ * Makes it unambiguous that a real subagent was spawned.
+ */
+function formatSubagentRunHeader(result: SubagentResult): string {
+  const toolList = result.allowedTools.join(', ');
+  return [
+    '=== SUBAGENT RUN (system) ===',
+    `subagent_type: ${result.subagentType}`,
+    `agentId: ${result.agentId}`,
+    `allowedTools: ${toolList}`,
+    `note: subagent evidence shows "Subagents spawned: 0" because subagents cannot spawn subagents`,
+    '',
+  ].join('\n');
+}
 
 export class TaskTool extends BaseTool {
   name = 'Task';
@@ -77,8 +93,8 @@ Each subagent has a restricted tool set and specialized system prompt.`;
         };
       }
 
-      // Build output with evidence
-      let output = result.output;
+      // Build output with SUBAGENT RUN header + evidence
+      let output = formatSubagentRunHeader(result) + result.output;
       if (result.evidence) {
         output += `\n\n${result.evidence.summary}`;
       }
@@ -90,6 +106,7 @@ Each subagent has a restricted tool set and specialized system prompt.`;
           agentId: result.agentId,
           subagentType: resolvedType,
           evidence: result.evidence,
+          allowedTools: result.allowedTools,
         },
       };
     } catch (error) {

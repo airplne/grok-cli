@@ -74,6 +74,12 @@ export interface SubagentResult {
   /** Unique ID for this subagent execution */
   agentId: string;
 
+  /** Resolved subagent type (e.g., "explore", "code-reviewer") */
+  subagentType: string;
+
+  /** List of tools the subagent was allowed to use */
+  allowedTools: string[];
+
   /** Evidence from the subagent's tool execution */
   evidence?: SubagentEvidence;
 

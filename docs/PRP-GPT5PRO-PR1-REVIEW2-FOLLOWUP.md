@@ -316,10 +316,10 @@ With the `DEBUG_STATE` gate, default runs are quiet while still allowing deep de
 **Verification**:
 ```bash
 # Default: quiet
-npm test -- --run tests/unit/app-state-debug.test.ts
+npm test tests/unit/app-state-debug.test.ts
 
 # Debug: verbose
-DEBUG_STATE=true npm test -- --run tests/unit/app-state-debug.test.ts
+DEBUG_STATE=true npm test tests/unit/app-state-debug.test.ts
 ```
 
 ---
@@ -387,7 +387,7 @@ git branch --show-current              # expect: fix/grep-security-code-quality
 git log -1 --oneline                   # expect: 0f422a4
 
 # Verify tests pass
-npm test -- --run                      # expect: 69 tests pass
+npm test                      # expect: 69 tests pass
 ```
 
 ### Step 1: Address Finding 5 (VALID) - Gate Test Logging
@@ -402,7 +402,7 @@ npm test -- --run                      # expect: 69 tests pass
 **No code changes required**, but this is a *command-line suppression* rather than a code fix.
 
 ```bash
-npm test -- --run --silent
+npm test --silent
 ```
 
 **Pros**:
@@ -425,7 +425,7 @@ const debugLog = (...args: unknown[]) => {
 
 **Pros**:
 - Explicit control
-- Default test runs are quiet, while local debugging remains easy: `DEBUG_STATE=true npm test -- --run`
+- Default test runs are quiet, while local debugging remains easy: `DEBUG_STATE=true npm test`
 
 **Cons**:
 - Requires code changes (replace existing `console.log` calls)
@@ -435,13 +435,13 @@ const debugLog = (...args: unknown[]) => {
 **Verification**:
 ```bash
 # Option A verification
-npm test -- --run --silent tests/unit/app-state-debug.test.ts
+npm test --silent tests/unit/app-state-debug.test.ts
 # Expected: test output without console.log noise
 
 # Option B verification (if implemented)
-npm test -- --run tests/unit/app-state-debug.test.ts
+npm test tests/unit/app-state-debug.test.ts
 # Expected: no console.log output
-DEBUG_STATE=true npm test -- --run tests/unit/app-state-debug.test.ts
+DEBUG_STATE=true npm test tests/unit/app-state-debug.test.ts
 # Expected: console.log output visible
 ```
 
@@ -496,7 +496,7 @@ expect(resolved).toBe(false);  // Promise should NOT resolve yet
 
 **Verification**:
 ```bash
-npm test -- --run tests/unit/grep-tool.test.ts
+npm test tests/unit/grep-tool.test.ts
 # Expected: 26 tests pass (same as before, but with explicit guards)
 ```
 
@@ -698,14 +698,14 @@ grep -n "69 tests" docs/*.md .grok/*.md 2>/dev/null
 npm run build
 
 # All tests (quiet by default; enable debug logs only when needed)
-npm test -- --run
+npm test
 
 # Expected output (no console.log noise):
 # Test Files  3 passed (3)
 #      Tests  69 passed (69)
 
 # Verify specific test file if Step 2 was implemented
-npm test -- --run tests/unit/grep-tool.test.ts
+npm test tests/unit/grep-tool.test.ts
 # Expected: 26 tests passed
 
 # Verify code locations haven't drifted
@@ -747,13 +747,13 @@ Co-Authored-By: Claude Opus 4.5 (1M context) <noreply@anthropic.com>"
 |---------|--------|---------------------|--------|
 | 1 - CRITICAL (validatePath) | [ ] Documented FP | `nl -ba src/tools/grep.ts \| grep -A2 "await validatePath"` | Line 50 shows `await` |
 | 2 - HIGH (symlink tests) | [ ] Documented FP | `grep -A5 "detectSymlinkCapability" tests/unit/path-validator.test.ts` | EPERM handling on line 40 |
-| 3 - MEDIUM (flushImmediate) | [ ] Fixed | `npm test -- --run tests/unit/grep-tool.test.ts` | 26/26 pass |
+| 3 - MEDIUM (flushImmediate) | [ ] Fixed | `npm test tests/unit/grep-tool.test.ts` | 26/26 pass |
 | 4 - MEDIUM (.env templates) | [ ] Documented FP | `nl -ba src/security/path-validator.ts \| grep -A10 "allowEnvDocs"` | Lines 227-231 show operation-aware logic |
-| 5 - LOW (console.log) | [ ] Fixed | `npm test -- --run tests/unit/app-state-debug.test.ts` | No debug logs by default |
+| 5 - LOW (console.log) | [ ] Fixed | `npm test tests/unit/app-state-debug.test.ts` | No debug logs by default |
 | 6 - LOW (doc line numbers) | [ ] Documented FP | `diff <(nl -ba src/tools/grep.ts \| sed -n '66p;72p') <(grep "grep.ts:66\\|grep.ts:72" docs/*.md)` | Match |
 
 **Final Checks**:
-- [ ] All tests pass: `npm test -- --run` (expect: 69/69)
+- [ ] All tests pass: `npm test` (expect: 69/69)
 - [ ] Build succeeds: `npm run build`
 - [ ] False positive documentation complete: `.grok/GPT5-PRO-REVIEW2-FALSE-POSITIVES.md`
 - [ ] Git history clean (one well-formed commit if changes made)
@@ -796,7 +796,7 @@ Thank you for your thorough review. We've analyzed all 6 findings and must respe
 
 5. **Finding 5 (LOW - console.log noise)**: ✅ ADDRESSED
    - Gated debug logging behind `DEBUG_STATE=true` in `tests/unit/app-state-debug.test.ts` so default test runs are quiet
-   - Debug output remains available when explicitly enabled: `DEBUG_STATE=true npm test -- --run tests/unit/app-state-debug.test.ts`
+   - Debug output remains available when explicitly enabled: `DEBUG_STATE=true npm test tests/unit/app-state-debug.test.ts`
 
 6. **Finding 6 (LOW - doc line numbers)**: ❌ FALSE POSITIVE
    - All 8 line references verified against actual code - ALL MATCH
@@ -823,7 +823,7 @@ Provide GPT-5 Pro with these materials:
 2. **False Positive Evidence**: `.grok/GPT5-PRO-REVIEW2-FALSE-POSITIVES.md`
 3. **Test Output**:
    ```bash
-   npm test -- --run > test-output.txt 2>&1
+   npm test > test-output.txt 2>&1
    # Attach test-output.txt showing 69/69 pass
    ```
 4. **Key Code Snippets** (if GPT-5 Pro requires inline evidence):

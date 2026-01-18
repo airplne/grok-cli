@@ -279,7 +279,7 @@ rm -rf "$(node -p \"require('os').tmpdir()\")"/path-validator-test-*
 ### Run all tests (CI mode)
 
 ```bash
-npm test -- --run
+npm test
 ```
 
 **Expected Result**:
@@ -299,8 +299,8 @@ npm test
 ### Run specific test file
 
 ```bash
-npm test -- --run tests/unit/grep-tool.test.ts
-npm test -- --run tests/unit/path-validator.test.ts
+npm test tests/unit/grep-tool.test.ts
+npm test tests/unit/path-validator.test.ts
 ```
 
 ---
@@ -347,7 +347,7 @@ npm test -- --run tests/unit/path-validator.test.ts
 
 | Criterion | Status |
 |-----------|--------|
-| `npm test -- --run` passes 69/69 tests | ✅ VERIFIED |
+| `npm test` passes 69/69 tests | ✅ VERIFIED |
 | `npm test` watch mode runs without errors | ✅ VERIFIED |
 | All 5 grep.ts fixes implemented with correct line numbers | ✅ VERIFIED |
 | Documentation matches current implementation | ✅ VERIFIED |
@@ -363,7 +363,7 @@ npm test -- --run tests/unit/path-validator.test.ts
 **Merge Commit**: `39f1d7e58519943b960c318e20f557aa4b43e9b5`  
 
 **Post-merge verification (main @ 39f1d7e)**:
-- `npm test -- --run` → 69/69 passing
+- `npm test` → 69/69 passing
 - Branch `fix/grep-security-code-quality` deleted (remote)
 
 ---

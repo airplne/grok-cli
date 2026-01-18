@@ -208,7 +208,7 @@ Tests have cross-platform guards (symlink detection, Unix-only test skipping), b
 2. Run full test suite on Windows:
    ```powershell
    npm install
-   npm test -- --run
+   npm test
    ```
 
 3. Verify expected behavior:

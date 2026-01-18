@@ -1736,7 +1736,7 @@ index 0000000..b7cfce9
 +### Run all tests (CI mode)
 +
 +```bash
-+npm test -- --run
++npm test
 +```
 +
 +**Expected Result**:
@@ -1756,8 +1756,8 @@ index 0000000..b7cfce9
 +### Run specific test file
 +
 +```bash
-+npm test -- --run tests/unit/grep-tool.test.ts
-+npm test -- --run tests/unit/path-validator.test.ts
++npm test tests/unit/grep-tool.test.ts
++npm test tests/unit/path-validator.test.ts
 +```
 +
 +---
@@ -1788,7 +1788,7 @@ index 0000000..b7cfce9
 +
 +| Criterion | Status |
 +|-----------|--------|
-+| `npm test -- --run` passes 69/69 tests | ✅ VERIFIED |
++| `npm test` passes 69/69 tests | ✅ VERIFIED |
 +| `npm test` watch mode runs without errors | ✅ VERIFIED |
 +| All 5 grep.ts fixes implemented with correct line numbers | ✅ VERIFIED |
 +| Documentation matches current implementation | ✅ VERIFIED |

@@ -29,6 +29,7 @@ export type CommandAction =
   | { type: 'exit' }
   | { type: 'clear' }
   | { type: 'set_model'; model: string }
+  | { type: 'submit_prompt'; content: string }
   | { type: 'none' };
 
 /**

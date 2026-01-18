@@ -661,7 +661,7 @@ Execute these commands (or verify via inspection):
 ### 9.1 Test Execution
 
 ```bash
-npm test -- --run
+npm test
 ```
 
 **Expected Output** (Linux/macOS):

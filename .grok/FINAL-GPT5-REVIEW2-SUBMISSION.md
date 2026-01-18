@@ -43,7 +43,7 @@ const debugLog = (...args: unknown[]) => {
 
 **Behavior**:
 - Default: Silent (no console.log output)
-- Debug mode: `DEBUG_STATE=true npm test -- --run tests/unit/app-state-debug.test.ts`
+- Debug mode: `DEBUG_STATE=true npm test tests/unit/app-state-debug.test.ts`
 
 ### 2. Improved Finding #3 (PARTIAL) - Mocked Fallback Determinism
 
@@ -95,7 +95,7 @@ For the 4 false positive findings, we've prepared comprehensive documentation wi
 ## Test Results
 
 ```bash
-$ npm test -- --run
+$ npm test
 
  Test Files  3 passed (3)
       Tests  69 passed (69)

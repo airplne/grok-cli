@@ -135,7 +135,7 @@ afterAll(async () => {
 - [ ] Guard 2: `tempDir !== homeDir` (exact match check)
 - [ ] Guard 3: `realpath(tempDir) !== realpath(homeDir)` (symlink-resistant)
 - [ ] Guard 4: Resolved path is under home directory (relative path check)
-- [ ] Tests still pass: `npm test -- --run tests/unit/path-validator.test.ts`
+- [ ] Tests still pass: `npm test tests/unit/path-validator.test.ts`
 
 ---
 
@@ -271,7 +271,7 @@ const itUnixSymlinkOnly = !IS_WINDOWS && CAN_CREATE_SYMLINKS ? it : it.skip;
 
 ### Acceptance Criteria
 
-- [ ] On Linux/macOS: `npm test -- --run tests/unit/path-validator.test.ts` passes with no unexpected skips.
+- [ ] On Linux/macOS: `npm test tests/unit/path-validator.test.ts` passes with no unexpected skips.
 - [ ] On Windows without symlink permissions: the suite passes; symlink-dependent tests are skipped (no hard failures from `EPERM`/`EACCES`).
 - [ ] Unix-only tests (`/etc/*`, `/proc/*`) are skipped on Windows.
 
@@ -389,7 +389,7 @@ it('should include -- separator in spawn args to prevent pattern injection', asy
 - [ ] Test verifies `--` separator for BOTH rg and grep
 - [ ] Test uses dash-prefixed pattern to demonstrate protection
 - [ ] Test count increases from 68 to 69
-- [ ] `npm test -- --run` passes
+- [ ] `npm test` passes
 
 ---
 
@@ -506,7 +506,7 @@ const itUnixSymlinkOnly = !IS_WINDOWS && CAN_CREATE_SYMLINKS ? it : it.skip;
 3. Final audit: run `rg -n "fs.symlink\\(" tests/unit/path-validator.test.ts` and confirm every occurrence is within a `describeSymlink`/`itSymlink`/`itUnixSymlinkOnly` test or has a local `try/catch` that handles `EPERM`/`EACCES`.
 
 **Acceptance Criteria**:
-- [ ] On Linux/macOS: `npm test -- --run tests/unit/path-validator.test.ts` passes with no unexpected skips.
+- [ ] On Linux/macOS: `npm test tests/unit/path-validator.test.ts` passes with no unexpected skips.
 - [ ] On Windows without symlink permissions: the suite passes; symlink-dependent tests are skipped (no hard failures from `EPERM`/`EACCES`).
 - [ ] Unix-only tests (`/etc/*`, `/proc/*`) are skipped on Windows.
 
@@ -575,8 +575,8 @@ Update test count from 68 to 69:
 
 **Line 292**:
 ```diff
-- | `npm test -- --run` passes 68/68 tests | ✅ VERIFIED |
-+ | `npm test -- --run` passes 69/69 tests | ✅ VERIFIED |
+- | `npm test` passes 68/68 tests | ✅ VERIFIED |
++ | `npm test` passes 69/69 tests | ✅ VERIFIED |
 ```
 
 ---
@@ -643,7 +643,7 @@ Vitest registers tests at module-evaluation time, so the flags that control skip
 
 ```bash
 # Run all tests
-npm test -- --run
+npm test
 
 # Expected (Linux/macOS)
  Test Files  3 passed (3)
@@ -658,8 +658,8 @@ npm test -- --run
 ### Run specific test file
 
 ```bash
-npm test -- --run tests/unit/path-validator.test.ts
-npm test -- --run tests/unit/grep-tool.test.ts
+npm test tests/unit/path-validator.test.ts
+npm test tests/unit/grep-tool.test.ts
 ```
 
 ### Test watch mode (verify no ELOOP)
@@ -707,7 +707,7 @@ After implementing fixes:
 
 ```bash
 # All tests pass
-npm test -- --run
+npm test
 # Expected (Linux/macOS): 3 files, 69 tests passing
 # Expected (Windows / restricted symlink env): exit code 0; some tests skipped
 

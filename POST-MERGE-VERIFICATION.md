@@ -100,7 +100,7 @@ npm run build
 
 **Command**:
 ```bash
-npm test -- --run
+npm test
 ```
 
 **Result**:

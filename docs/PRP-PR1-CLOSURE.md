@@ -701,7 +701,7 @@ Tests have cross-platform guards (symlink detection, Unix-only test skipping), b
 2. Run full test suite on Windows:
    ```powershell
    npm install
-   npm test -- --run
+   npm test
    ```
 
 3. Verify expected behavior:
@@ -832,7 +832,7 @@ cd "$(git rev-parse --show-toplevel)"
 set -o pipefail
 
 # Run all tests and capture output
-npm test -- --run 2>&1 | tee verification-test-output.txt
+npm test 2>&1 | tee verification-test-output.txt
 
 # Verify exit code
 test_exit=${PIPESTATUS[0]}
@@ -1156,7 +1156,7 @@ Before merging, verify all criteria are met:
 | Criterion | Verification | Status |
 |-----------|--------------|--------|
 | Zero functional regressions | All 69 tests pass | [ ] |
-| Tests green | `npm test -- --run` exits 0 | [ ] |
+| Tests green | `npm test` exits 0 | [ ] |
 | Documentation updated | `docs/USAGE.md` created | [ ] |
 | Post-merge tracking | `docs/POST-MERGE-ENHANCEMENTS.md` created | [ ] |
 | PR ready to merge | GPT-5 Pro GO decision | [ ] |
@@ -1250,7 +1250,7 @@ git checkout main
 git pull origin main
 
 # Run tests on main to verify merge
-npm test -- --run
+npm test
 ```
 
 **Acceptance Criteria**:
@@ -1342,7 +1342,7 @@ After successfully merging:
   ```bash
   git checkout main && git pull
   ```
-- [ ] Run `npm test -- --run` on main to verify merge success
+- [ ] Run `npm test` on main to verify merge success
 - [ ] Create GitHub issues for POST-MERGE-ENHANCEMENTS.md items (optional):
   - [ ] Issue: TOCTOU hardening
   - [ ] Issue: Windows testing validation
@@ -1365,7 +1365,7 @@ After successfully merging:
 git diff --stat 5665a46..HEAD
 
 # Run tests
-npm test -- --run
+npm test
 
 # Check audit
 npm audit
@@ -1389,7 +1389,7 @@ gh pr view 1 --json state,mergedAt
 git checkout main && git pull
 
 # Verify tests pass
-npm test -- --run
+npm test
 
 # Verify branch deleted
 git branch -r | grep fix/grep

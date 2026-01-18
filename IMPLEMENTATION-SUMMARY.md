@@ -181,7 +181,7 @@ Successfully implemented **offline-first architecture** with **keychain-only aut
 **Final Checks**:
 ```bash
 ✓ npm run build - Success (TypeScript compiles cleanly)
-✓ npm test -- --run - 97/97 tests passing
+✓ npm test - 97/97 tests passing
 ✓ No placeholder links found
 ✓ No stdin/pipes auth guidance present
 ✓ All documentation files present

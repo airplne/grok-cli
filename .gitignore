@@ -32,6 +32,11 @@ coverage/
 # Generated TTS audio (keep background music tracks)
 .claude/audio/tts-*.wav
 
+# Claude/AgentVibes local state (do not commit)
+.claude/config/background-music-position.txt
+.claude/github-star-reminder.txt
+.claude/github-star-reminder-disabled.flag
+
 # Codex credentials and sessions (SENSITIVE)
 .codex/
 

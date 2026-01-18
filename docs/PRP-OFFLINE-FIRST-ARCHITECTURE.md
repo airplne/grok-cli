@@ -2194,7 +2194,7 @@ See [USAGE.md](docs/USAGE.md) for full documentation.
 
 | Test | Expected | Status |
 |------|----------|--------|
-| All 69 existing tests pass | `npm test -- --run` | [ ] |
+| All 69 existing tests pass | `npm test` | [ ] |
 | Grep tool works offline | `grok grep "test"` | [ ] |
 | Path validator enforced | Try blocked path | [ ] |
 | Security fixes intact | Re-run security tests | [ ] |

@@ -59,6 +59,10 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
   );
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
 
+  // Tool output navigation and expansion state
+  const [selectedToolIndex, setSelectedToolIndex] = useState<number | null>(null);
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+
   // Create agent with current model (only if we have API key)
   const agentRef = useRef<GrokAgent | null>(null);
 
@@ -138,18 +142,18 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
     offlineMode: offlineMode, // Set from parent (based on credential status)
   }), [currentModel, messages, exit]);
 
-  // Handle command execution
-  const executeCommand = useCallback(async (input: string): Promise<boolean> => {
+  // Handle command execution - returns { handled, submitPrompt? }
+  const executeCommand = useCallback(async (input: string): Promise<{ handled: boolean; submitPrompt?: string }> => {
     const registry = getRegistry();
     const context = createCommandContext();
     const result = await registry.processInput(input, context);
 
     if (result.type === 'empty') {
-      return true; // Handled (do nothing)
+      return { handled: true }; // Handled (do nothing)
     }
 
     if (result.type === 'message') {
-      return false; // Not a command, needs to be sent to agent
+      return { handled: false }; // Not a command, needs to be sent to agent
     }
 
     // It's a command result
@@ -177,10 +181,13 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
         case 'set_model':
           // Model already set via context.setModel
           break;
+        case 'submit_prompt':
+          // Return the prompt content to be submitted
+          return { handled: true, submitPrompt: commandResult.action.content };
       }
     }
 
-    return true; // Command was handled
+    return { handled: true }; // Command was handled
   }, [createCommandContext, exit]);
 
   // Process agent events
@@ -222,6 +229,18 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
                 ? { ...t, result: event.result, completed: true }
                 : t
             ));
+            break;
+          case 'evidence':
+            // Display evidence summary for verification
+            if (event.evidence) {
+              const summary = event.evidence.summary;
+              setMessages(prev => [...prev, {
+                id: generateId(),
+                role: 'system',
+                content: summary,
+                timestamp: new Date(),
+              }]);
+            }
             break;
           case 'error':
             setError(event.error || 'Unknown error');
@@ -331,8 +350,22 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
 
     // Check if it's a command
     if (isCommand(value)) {
-      const handled = await executeCommand(value);
-      if (handled) {
+      const result = await executeCommand(value);
+
+      // If command triggered a prompt submission (e.g., /prompt <file>)
+      const promptContent = result.submitPrompt;
+      if (promptContent) {
+        setMessages(prev => [...prev, {
+          id: generateId(),
+          role: 'user',
+          content: promptContent,
+          timestamp: new Date(),
+        }]);
+        runAgent(promptContent);
+        return;
+      }
+
+      if (result.handled) {
         return; // Command was processed
       }
     }
@@ -381,10 +414,79 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
     }
   }, [pendingConfirm]);
 
+  // Toggle expansion for a tool output
+  const toggleToolExpansion = useCallback((toolId: string) => {
+    setExpandedTools(prev => {
+      const next = new Set(prev);
+      if (next.has(toolId)) {
+        next.delete(toolId);
+      } else {
+        next.add(toolId);
+      }
+      return next;
+    });
+  }, []);
+
   // Keyboard shortcuts
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       exit();
+    }
+
+    // Tool output navigation:
+    // - Enter navigation with ↑/↓ (does not interfere with typing)
+    // - When a tool is selected: j/k or ↑/↓ to navigate, e to expand/collapse, Esc to return to input
+    if (state === 'idle' && completedTools.length > 0) {
+      const inputLower = input.toLowerCase();
+      const isNavigatingTools = selectedToolIndex !== null;
+
+      // Enter navigation mode with arrow keys
+      if (!isNavigatingTools) {
+        if (key.downArrow) {
+          setSelectedToolIndex(0);
+          return;
+        }
+
+        if (key.upArrow) {
+          setSelectedToolIndex(completedTools.length - 1);
+          return;
+        }
+
+        return;
+      }
+
+      // Navigate down: j or down arrow
+      if (inputLower === 'j' || key.downArrow) {
+        setSelectedToolIndex(prev => {
+          if (prev === null) return 0;
+          return Math.min(prev + 1, completedTools.length - 1);
+        });
+        return;
+      }
+
+      // Navigate up: k or up arrow
+      if (inputLower === 'k' || key.upArrow) {
+        setSelectedToolIndex(prev => {
+          if (prev === null) return completedTools.length - 1;
+          return Math.max(prev - 1, 0);
+        });
+        return;
+      }
+
+      // Expand/collapse: e
+      if (inputLower === 'e' && selectedToolIndex !== null) {
+        const tool = completedTools[selectedToolIndex];
+        if (tool) {
+          toggleToolExpansion(tool.id);
+        }
+        return;
+      }
+
+      // Return to input: Escape
+      if (key.escape) {
+        setSelectedToolIndex(null);
+        return;
+      }
     }
   });
 
@@ -404,19 +506,11 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
     [toolOutputs]
   );
 
-  const allCompletedItems = useMemo(() => {
-    const items: Array<{ type: 'message' | 'tool'; id: string; data: any }> = [];
-
-    completedMessages.forEach(msg => {
-      items.push({ type: 'message', id: msg.id, data: msg });
-    });
-
-    completedTools.forEach(tool => {
-      items.push({ type: 'tool', id: tool.id, data: tool });
-    });
-
-    return items;
-  }, [completedMessages, completedTools]);
+  // Only messages go in Static (no interaction needed)
+  // Tools are rendered dynamically to support selection/expansion
+  const staticMessages = useMemo(() => {
+    return completedMessages.map(msg => ({ id: msg.id, data: msg }));
+  }, [completedMessages]);
 
   const todos = TodoTool.getTodos();
 
@@ -447,19 +541,39 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
       {/* Todo Display */}
       {todos.length > 0 && <TodoDisplay todos={todos} />}
 
-      {/* Consolidated Static: All completed items */}
-      <Static items={allCompletedItems}>
-        {(item) => item.type === 'message' ? (
+      {/* Static: Completed messages (no interaction needed) */}
+      <Static items={staticMessages}>
+        {(item) => (
           <MessageDisplay key={item.id} role={item.data.role} content={item.data.content} />
-        ) : (
-          <ToolOutput key={item.id} toolName={item.data.tool} result={item.data.result} />
         )}
       </Static>
+
+      {/* Dynamic: Completed tool outputs (support selection/expansion) */}
+      {completedTools.map((t, index) => (
+        <ToolOutput
+          key={t.id}
+          toolName={t.tool}
+          result={t.result}
+          selected={selectedToolIndex === index}
+          expanded={expandedTools.has(t.id)}
+        />
+      ))}
 
       {/* Dynamic: Pending tool outputs */}
       {pendingTools.map((t) => (
         <ToolOutput key={t.id} toolName={t.tool} result={t.result} />
       ))}
+
+      {/* Navigation hint when tools exist */}
+      {state === 'idle' && completedTools.length > 0 && (
+        <Box marginTop={1}>
+          <Text color="gray" dimColor>
+            {selectedToolIndex === null
+              ? '[↑/↓: select a tool output]'
+              : '[j/k or ↑/↓: navigate | e: expand/collapse | Esc: return to input]'}
+          </Text>
+        </Box>
+      )}
 
       {/* Streaming text */}
       {streamingText && (
@@ -496,7 +610,7 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
 
       {/* Input prompt */}
       {state === 'idle' && (
-        <InputPrompt onSubmit={handleSubmit} />
+        <InputPrompt onSubmit={handleSubmit} isActive={selectedToolIndex === null} />
       )}
     </Box>
   );

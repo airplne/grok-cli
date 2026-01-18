@@ -220,7 +220,7 @@ npm run build
 
 **Command**:
 ```bash
-npm test -- --run
+npm test
 ```
 
 **Expected Output**:
@@ -439,7 +439,7 @@ git grep -n "expiresAt" src/auth/credential-store.ts
 
 3. **Run test suite**:
    ```bash
-   npm test -- --run
+   npm test
    ```
    - Expected: 97 passed (97)
    - All test files pass
@@ -456,7 +456,7 @@ git grep -A10 "scanForEnvVars" tests/security/keychain-only.test.ts
 # Expected: Function that scans src/ for env var usage
 
 # 3. Run full test suite
-npm test -- --run
+npm test
 # Expected: 97 passed (97)
 ```
 
@@ -547,7 +547,7 @@ Use this checklist to perform the verification:
 - [ ] **2.2** `git ls-files | xargs grep -n -- '--st[d]in' 2>/dev/null` → 0 matches
 - [ ] **2.3** `git ls-files | xargs grep -n "your[-]org\\|youruser[n]ame" 2>/dev/null` → 0 matches
 - [ ] **2.4** `npm run build` → Success (exit 0)
-- [ ] **2.5** `npm test -- --run` → 97 passed (97)
+- [ ] **2.5** `npm test` → 97 passed (97)
 
 ### Documentation Review
 
@@ -592,7 +592,7 @@ Use this template to report your findings:
 | No stdin/pipes refs | `git ls-files \| xargs grep -n -- '--st[d]in'` | [RESULT] | [✅/❌] |
 | No placeholders | `git ls-files \| xargs grep -n "your[-]org\\|youruser[n]ame"` | [RESULT] | [✅/❌] |
 | Build succeeds | `npm run build` | [RESULT] | [✅/❌] |
-| Tests pass | `npm test -- --run` | [RESULT] | [✅/❌] |
+| Tests pass | `npm test` | [RESULT] | [✅/❌] |
 
 ---
 

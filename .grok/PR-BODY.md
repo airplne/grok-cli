@@ -49,7 +49,7 @@ report, see `docs/PR-CODEX-FIXES-IMPLEMENTATION.md`.
 ## Verification
 
 ```bash
-npm test -- --run
+npm test
 ```
 
 **Results**:

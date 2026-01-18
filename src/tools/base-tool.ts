@@ -7,6 +7,16 @@ export interface ToolResult {
   data?: unknown;
 }
 
+/**
+ * Execution context passed to tools that need it (e.g., Task tool)
+ */
+export interface ToolContext {
+  /** API key for Grok API (for tools that spawn subagents) */
+  apiKey?: string;
+  /** Current working directory */
+  cwd: string;
+}
+
 export interface ToolDefinition {
   type: 'function';
   function: {
@@ -24,7 +34,7 @@ export abstract class BaseTool {
   // Override to require confirmation
   requiresConfirmation = false;
 
-  abstract execute(args: Record<string, unknown>): Promise<ToolResult>;
+  abstract execute(args: Record<string, unknown>, context?: ToolContext): Promise<ToolResult>;
 
   getDefinition(): ToolDefinition {
     return {

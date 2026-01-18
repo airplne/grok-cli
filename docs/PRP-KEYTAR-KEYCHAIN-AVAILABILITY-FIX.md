@@ -221,7 +221,7 @@ Run after implementation:
 
 ```bash
 npm run build
-npm test -- --run
+npm test
 
 rg -n "process\\.env\\.(GROK_API_KEY|XAI_API_KEY)" src
 rg -n "\\.env" src/auth src/index.tsx src/client src/commands
@@ -250,5 +250,5 @@ node dist/index.js auth status
 
 5. Build + tests pass:
    - `npm run build` succeeds
-   - `npm test -- --run` passes
+   - `npm test` passes
 

@@ -79,7 +79,7 @@ Once the PR is created, use the review prompt prepared at `.grok/GPT5-PRO-REVIEW
 | Criterion | Status |
 |-----------|--------|
 | PR contains only 6 in-scope files | ✅ VERIFIED (c12907a) |
-| `npm test -- --run` passes 68/68 | ✅ VERIFIED |
+| `npm test` passes 68/68 | ✅ VERIFIED |
 | `npm test` watch mode doesn't crash with ELOOP | ✅ VERIFIED |
 | docs/PR-CODEX-FIXES-IMPLEMENTATION.md matches code/tests | ✅ VERIFIED |
 | GPT-5 Pro review completed | ⏳ PENDING |

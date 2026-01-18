@@ -15,7 +15,7 @@ import { SUBAGENT_ALIASES, SubagentResult } from '../agents/types.js';
  * Format subagent run header for Task output.
  * Makes it unambiguous that a real subagent was spawned.
  */
-function formatSubagentRunHeader(result: SubagentResult): string {
+export function formatSubagentRunHeader(result: SubagentResult): string {
   const toolList = result.allowedTools.join(', ');
   return [
     '=== SUBAGENT RUN (system) ===',

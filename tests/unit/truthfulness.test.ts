@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import { tools } from '../../src/tools/index.js';
 import { KNOWN_TOOL_NAMES } from '../../src/tools/tool-names.js';
+import { formatSubagentRunHeader } from '../../src/tools/task.js';
 import { loadSubagentDefinition, resolveSubagentName, listAvailableSubagents } from '../../src/agents/subagent-loader.js';
 import { SUBAGENT_ALIASES } from '../../src/agents/types.js';
 import { computeToolCallEvidence } from '../../src/agent/grok-agent.js';
@@ -460,22 +461,17 @@ describe('Subagent System', () => {
       /subagent evidence shows "Subagents spawned: 0"/,
     ];
 
-    it('should detect all required header fields in mock Task output', () => {
-      const mockTaskOutput = `
-=== SUBAGENT RUN (system) ===
-subagent_type: explore
-agentId: subagent-123-abc
-allowedTools: Read, Grep, Glob
-note: subagent evidence shows "Subagents spawned: 0" because subagents cannot spawn subagents
-
-[subagent content here]
-
-=== SUBAGENT TRACE ===
-...
-`;
+    it('should generate header with all required fields', () => {
+      const header = formatSubagentRunHeader({
+        success: true,
+        output: '',
+        agentId: 'subagent-123-abc',
+        subagentType: 'explore',
+        allowedTools: ['Read', 'Grep', 'Glob'],
+      });
 
       for (const pattern of requiredHeaderFields) {
-        expect(pattern.test(mockTaskOutput), `Should contain: ${pattern}`).toBe(true);
+        expect(pattern.test(header), `Should contain: ${pattern}`).toBe(true);
       }
     });
 

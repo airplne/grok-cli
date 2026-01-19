@@ -5,8 +5,18 @@ import {
   PASTE_END,
   PasteState,
   processPasteData,
-  getMultiLineDisplay,
 } from '../utils/bracketed-paste.js';
+import {
+  createEditorState,
+  insertAtCursor,
+  deleteBackward,
+  deleteForward,
+  moveCursor,
+  moveCursorToBoundary,
+  setValue,
+  getDisplayWithCursor,
+  EditorState,
+} from '../utils/input-editor.js';
 import { getCommandSuggestions } from '../utils/command-suggestions.js';
 import { CommandPalette } from './command-palette.js';
 import { getRegistry } from '../../commands/index.js';
@@ -18,7 +28,7 @@ interface InputPromptProps {
 }
 
 export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChange }: InputPromptProps) {
-  const [value, setValue] = useState('');
+  const [editorState, setEditorState] = useState<EditorState>(createEditorState());
   const [pasteState, setPasteState] = useState<PasteState>({ isPasting: false, buffer: '' });
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
   const [paletteDismissed, setPaletteDismissed] = useState(false);
@@ -34,11 +44,11 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
       return [];
     }
 
-    return getCommandSuggestions(value, commands);
-  }, [value, commands, pasteState.isPasting, isActive]);
+    return getCommandSuggestions(editorState.value, commands);
+  }, [editorState.value, commands, pasteState.isPasting, isActive]);
 
   // Only show palette while editing the command token (before first space)
-  const isEditingCommand = value.startsWith('/') && !value.includes(' ');
+  const isEditingCommand = editorState.value.startsWith('/') && !editorState.value.includes(' ');
   const showPalette = isEditingCommand && suggestions.length > 0 && !paletteDismissed;
 
   // Reset selection when suggestions change
@@ -77,9 +87,10 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
         setPasteState(result.state);
       }
 
-      // Append completed paste content
+      // Append completed paste content at cursor
       if (result.contentToAppend !== null) {
-        setValue(prev => prev + result.contentToAppend);
+        setEditorState(prev => insertAtCursor(prev, result.contentToAppend!));
+        setPaletteDismissed(false);
       }
     };
 
@@ -113,10 +124,10 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
         if (selected) {
           const commandName = selected.command.name;
           // Extract args portion (if any)
-          const parts = value.split(' ');
+          const parts = editorState.value.split(' ');
           const args = parts.slice(1).join(' ');
           // Replace command portion with selected, preserve args
-          setValue(`/${commandName}${args ? ' ' + args : ' '}`);
+          setEditorState(setValue(editorState, `/${commandName}${args ? ' ' + args : ' '}`));
           setPaletteDismissed(false); // Palette will auto-hide due to space
         }
         return;
@@ -130,42 +141,59 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
       }
     }
 
+    // Cursor movement (left/right arrows)
+    // Only when palette is NOT visible (palette uses arrows for navigation)
+    if (!showPalette) {
+      if (key.leftArrow) {
+        setEditorState(prev => moveCursor(prev, 'left'));
+        return;
+      }
+
+      if (key.rightArrow) {
+        setEditorState(prev => moveCursor(prev, 'right'));
+        return;
+      }
+    }
+
     // Regular input handling
     if (key.return) {
-      if (value.trim()) {
-        onSubmit(value.trim());
-        setValue('');
+      if (editorState.value.trim()) {
+        onSubmit(editorState.value.trim());
+        setEditorState(createEditorState());
         setSelectedSuggestionIndex(0);
-        setPaletteDismissed(false); // Reset for next command
+        setPaletteDismissed(false);
       }
-    } else if (key.backspace || key.delete) {
-      setValue(prev => prev.slice(0, -1));
-      setPaletteDismissed(false); // Re-show palette on editing
+    } else if (key.backspace) {
+      setEditorState(prev => deleteBackward(prev));
+      setPaletteDismissed(false);
+    } else if (key.delete) {
+      setEditorState(prev => deleteForward(prev));
+      setPaletteDismissed(false);
     } else if (!key.ctrl && !key.meta && input && !key.tab) {
       // Filter out escape sequences that might slip through
       if (!input.startsWith('\x1b')) {
-        setValue(prev => prev + input);
-        setPaletteDismissed(false); // Re-show palette on typing
+        setEditorState(prev => insertAtCursor(prev, input));
+        setPaletteDismissed(false);
       }
     }
   }, { isActive });
 
   // Get display representation
-  const { display, isMultiLine, lineCount } = getMultiLineDisplay(value);
+  const displayInfo = getDisplayWithCursor(editorState);
 
   return (
     <Box marginTop={1} flexDirection="column">
       <Box>
         <Text color="blue" bold>&gt; </Text>
-        <Text>{display}</Text>
+        <Text>{displayInfo.display}</Text>
         <Text color="gray" dimColor={!isActive}>
-          {pasteState.isPasting ? ' [pasting...]' : '|'}
+          {pasteState.isPasting ? ' [pasting...]' : ''}
         </Text>
       </Box>
-      {isMultiLine && (
+      {displayInfo.isMultiLine && (
         <Box marginLeft={2}>
           <Text color="gray" dimColor>
-            (multi-line prompt: {value.length} chars)
+            (multi-line prompt: {editorState.value.length} chars)
           </Text>
         </Box>
       )}

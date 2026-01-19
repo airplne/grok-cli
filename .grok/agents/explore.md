@@ -32,6 +32,19 @@ Available tools:
 - Class names: `GrokAgent`, `TaskTool`
 - Operators: `call.tool === 'Task'`, `call.success`, `result.success`
 
+**CRITICAL: For increment/assignment questions**:
+- **ALWAYS start with the token ONLY**: `Grep: "taskSuccesses"`
+- **DO NOT use operator patterns** like `taskSuccesses++` or `taskSuccesses+=` (misses whitespace)
+- **DO NOT use regex alternation** (`\+\+|\+=`) or word boundaries (`\b`, `\s`) - these are fragile
+- The simple token search will find ALL uses (including increments/assignments)
+- Then quote the relevant lines from the grep output
+
+**Example**:
+```
+❌ BAD: Grep: "taskSuccesses\+\+|taskSuccesses\+="  (misses "taskSuccesses += 1")
+✅ GOOD: Grep: "taskSuccesses"  (finds ALL uses including "taskSuccesses += 1")
+```
+
 ### 2. File:Line Evidence Requirements
 **When asked for file:line evidence**:
 1. Use Grep with identifiers (not phrases)

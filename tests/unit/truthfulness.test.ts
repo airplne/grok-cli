@@ -546,6 +546,29 @@ Some subagent text without a proper header.
       expect(definition.systemPrompt).toMatch(/checklist|verify/i);
       expect(definition.systemPrompt).toContain('exact matching code');
     });
+
+    it('should instruct to start with token-only search for increments', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toContain('ALWAYS start with');
+      expect(definition.systemPrompt).toContain('token ONLY');
+      expect(definition.systemPrompt).toMatch(/Grep:.*"taskSuccesses"/);
+    });
+
+    it('should warn against fragile operator patterns', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toContain('DO NOT use operator patterns');
+      expect(definition.systemPrompt).toMatch(/taskSuccesses\+\+|taskSuccesses\+=/);
+      expect(definition.systemPrompt).toContain('misses whitespace');
+    });
+
+    it('should warn against regex alternation and word boundaries', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toContain('DO NOT use regex alternation');
+      expect(definition.systemPrompt).toMatch(/\\b|\\s|fragile/);
+    });
   });
 });
 

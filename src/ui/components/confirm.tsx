@@ -19,15 +19,26 @@ export function ConfirmDialog({
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useInput((input, key) => {
-    // Tab: cycle forward
-    if (key.tab) {
-      setSelectedIndex(prev => (prev + 1) % options.length);
+    // Shift+Tab handling varies across terminals:
+    // - Some send ESC [ Z
+    // - Some send ESC [ 1 ; 2 Z
+    // - Some terminals split ESC, leaving "[Z" / "[1;2Z"
+    // - Some set key.tab + key.shift
+    const isShiftTab =
+      input === '\x1b[Z' ||
+      input === '\x1b[1;2Z' ||
+      input === '[Z' ||
+      input === '[1;2Z' ||
+      (key.tab && (key as any).shift);
+
+    if (isShiftTab) {
+      setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
       return;
     }
 
-    // Shift+Tab: cycle backward
-    if (input === '\x1b[Z') {
-      setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
+    // Tab: cycle forward
+    if (key.tab || input === '\t') {
+      setSelectedIndex(prev => (prev + 1) % options.length);
       return;
     }
 

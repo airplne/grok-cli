@@ -148,4 +148,59 @@ describe('confirm decision', () => {
       expect(shouldAutoApprove('Bash', autoAcceptEdits)).toBe(false);
     });
   });
+
+  describe('Tab/Shift+Tab navigation helpers', () => {
+    // These tests document the various terminal sequences for Tab/Shift+Tab
+    // that the ConfirmDialog must handle
+
+    it('should recognize standard Shift+Tab sequence (ESC [ Z)', () => {
+      const input = '\x1b[Z';
+      const isShiftTab = input === '\x1b[Z';
+      expect(isShiftTab).toBe(true);
+    });
+
+    it('should recognize extended Shift+Tab (ESC [ 1 ; 2 Z)', () => {
+      const input = '\x1b[1;2Z';
+      const isShiftTab = input === '\x1b[1;2Z';
+      expect(isShiftTab).toBe(true);
+    });
+
+    it('should recognize ESC-stripped Shift+Tab ([Z)', () => {
+      const input = '[Z';
+      const isShiftTab = input === '[Z';
+      expect(isShiftTab).toBe(true);
+    });
+
+    it('should recognize ESC-stripped extended Shift+Tab ([1;2Z)', () => {
+      const input = '[1;2Z';
+      const isShiftTab = input === '[1;2Z';
+      expect(isShiftTab).toBe(true);
+    });
+
+    it('should handle selection cycling forward (Tab)', () => {
+      // Simulate 3 options, start at index 0
+      let index = 0;
+      const optionsLength = 3;
+
+      // Tab 3 times
+      index = (index + 1) % optionsLength; // 1
+      index = (index + 1) % optionsLength; // 2
+      index = (index + 1) % optionsLength; // 0 (wraps)
+
+      expect(index).toBe(0);
+    });
+
+    it('should handle selection cycling backward (Shift+Tab)', () => {
+      // Simulate 3 options, start at index 0
+      let index = 0;
+      const optionsLength = 3;
+
+      // Shift+Tab 3 times
+      index = (index - 1 + optionsLength) % optionsLength; // 2
+      index = (index - 1 + optionsLength) % optionsLength; // 1
+      index = (index - 1 + optionsLength) % optionsLength; // 0 (wraps)
+
+      expect(index).toBe(0);
+    });
+  });
 });

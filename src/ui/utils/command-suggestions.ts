@@ -170,26 +170,36 @@ export function getCommandSuggestions(input: string, commands: Command[]): Comma
 }
 
 /**
- * Get "did you mean" suggestion for an unknown command.
+ * Get "did you mean" suggestions for an unknown command.
  *
  * @param unknownCommand - The command that wasn't found (without leading /)
  * @param commands - Available commands
- * @returns Best suggestion or null
+ * @param maxSuggestions - Maximum number of suggestions to return (default: 3)
+ * @returns Top suggestions (fuzzy/substring matches only)
+ */
+export function getDidYouMeanSuggestions(
+  unknownCommand: string,
+  commands: Command[],
+  maxSuggestions: number = 3
+): CommandSuggestion[] {
+  const suggestions = getCommandSuggestions(`/${unknownCommand}`, commands);
+
+  // Only return fuzzy/substring matches (not exact/prefix - those would have been found)
+  const relevantSuggestions = suggestions.filter(
+    s => s.matchType === 'fuzzy' || s.matchType === 'substring'
+  );
+
+  return relevantSuggestions.slice(0, maxSuggestions);
+}
+
+/**
+ * Get single "did you mean" suggestion for an unknown command.
+ * @deprecated Use getDidYouMeanSuggestions() for multiple suggestions
  */
 export function getDidYouMeanSuggestion(
   unknownCommand: string,
   commands: Command[]
 ): CommandSuggestion | null {
-  const suggestions = getCommandSuggestions(`/${unknownCommand}`, commands);
-
-  // Return best fuzzy/substring match if any
-  if (suggestions.length > 0) {
-    const best = suggestions[0];
-    // Only suggest if it's a reasonable match (fuzzy or substring)
-    if (best.matchType === 'fuzzy' || best.matchType === 'substring') {
-      return best;
-    }
-  }
-
-  return null;
+  const suggestions = getDidYouMeanSuggestions(unknownCommand, commands, 1);
+  return suggestions[0] || null;
 }

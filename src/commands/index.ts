@@ -7,7 +7,7 @@
 
 import type { Command, ParsedCommand, CommandContext, CommandResult } from './types.js';
 import { parseInput, isCommand, parseCommand } from './parser.js';
-import { getDidYouMeanSuggestion } from '../ui/utils/command-suggestions.js';
+import { getDidYouMeanSuggestions } from '../ui/utils/command-suggestions.js';
 
 // Import command handlers
 import { helpCommand } from './handlers/help.js';
@@ -79,16 +79,19 @@ class CommandRegistry {
     const command = this.getCommand(parsed.name);
 
     if (!command) {
-      // Try to provide "did you mean" suggestion
-      const suggestion = getDidYouMeanSuggestion(parsed.name, this.getAllCommands());
+      // Try to provide "did you mean" suggestions (top 3)
+      const suggestions = getDidYouMeanSuggestions(parsed.name, this.getAllCommands(), 3);
 
       let errorMessage = `Unknown command: /${parsed.name}`;
 
-      if (suggestion) {
-        const suggestedName = suggestion.matchedAlias
-          ? `${suggestion.command.name} (alias: ${suggestion.matchedAlias})`
-          : suggestion.command.name;
-        errorMessage += `\n\nDid you mean: /${suggestedName}?`;
+      if (suggestions.length > 0) {
+        errorMessage += '\n\nDid you mean:';
+        for (const suggestion of suggestions) {
+          const suggestedName = suggestion.matchedAlias
+            ? `${suggestion.command.name} (alias: ${suggestion.matchedAlias})`
+            : suggestion.command.name;
+          errorMessage += `\n  /${suggestedName}`;
+        }
       }
 
       errorMessage += '\n\nUse /help to see all available commands.';

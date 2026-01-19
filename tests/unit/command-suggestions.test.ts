@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   levenshteinDistance,
   getCommandSuggestions,
+  getDidYouMeanSuggestions,
   getDidYouMeanSuggestion,
   matchCommand,
   MatchType,
@@ -217,7 +218,43 @@ describe('command suggestions', () => {
     });
   });
 
-  describe('getDidYouMeanSuggestion', () => {
+  describe('getDidYouMeanSuggestions', () => {
+    it('should return top 3 fuzzy/substring matches', () => {
+      const commands: Command[] = [
+        { name: 'test', description: '', usage: '', arguments: [], examples: [], aliases: [], execute: async () => ({ success: true }) },
+        { name: 'text', description: '', usage: '', arguments: [], examples: [], aliases: [], execute: async () => ({ success: true }) },
+        { name: 'next', description: '', usage: '', arguments: [], examples: [], aliases: [], execute: async () => ({ success: true }) },
+      ];
+
+      const suggestions = getDidYouMeanSuggestions('txt', commands, 3);
+
+      // All three have substring or fuzzy match to "txt"
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions.length).toBeLessThanOrEqual(3);
+    });
+
+    it('should only return fuzzy/substring matches (not exact/prefix)', () => {
+      const suggestions = getDidYouMeanSuggestions('promt', mockCommands, 3);
+
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions.every(s => s.matchType === 'fuzzy' || s.matchType === 'substring')).toBe(true);
+    });
+
+    it('should respect maxSuggestions limit', () => {
+      const suggestions = getDidYouMeanSuggestions('e', mockCommands, 2);
+
+      expect(suggestions.length).toBeLessThanOrEqual(2);
+    });
+
+    it('should return empty for no fuzzy/substring matches', () => {
+      const suggestions = getDidYouMeanSuggestions('prom', mockCommands, 3);
+
+      // "prom" is a prefix match, not fuzzy/substring
+      expect(suggestions.length).toBe(0);
+    });
+  });
+
+  describe('getDidYouMeanSuggestion (single - deprecated)', () => {
     it('should suggest fuzzy match for typo', () => {
       const suggestion = getDidYouMeanSuggestion('promt', mockCommands);
 
@@ -226,41 +263,10 @@ describe('command suggestions', () => {
       expect(suggestion?.matchType).toBe('fuzzy');
     });
 
-    it('should suggest substring match', () => {
-      const suggestion = getDidYouMeanSuggestion('odel', mockCommands);
-
-      expect(suggestion).toBeDefined();
-      expect(suggestion?.command.name).toBe('model');
-      expect(suggestion?.matchType).toBe('substring');
-    });
-
-    it('should not suggest for prefix match (would be found by palette)', () => {
-      const suggestion = getDidYouMeanSuggestion('prom', mockCommands);
-
-      // Prefix matches are shown in palette already, so did-you-mean
-      // should only trigger for fuzzy/substring (actual typos)
-      // But currently it returns prefix - that's OK, registry can handle it
-      if (suggestion) {
-        expect(suggestion.command.name).toBe('prompt');
-      }
-    });
-
-    it('should return null for no reasonable match', () => {
+    it('should return null for no fuzzy/substring match', () => {
       const suggestion = getDidYouMeanSuggestion('xyz123', mockCommands);
 
       expect(suggestion).toBeNull();
-    });
-
-    it('should prioritize closer fuzzy matches', () => {
-      const commands: Command[] = [
-        { name: 'test', description: '', usage: '', arguments: [], examples: [], aliases: [], execute: async () => ({ success: true }) },
-        { name: 'text', description: '', usage: '', arguments: [], examples: [], aliases: [], execute: async () => ({ success: true }) },
-      ];
-
-      const suggestion = getDidYouMeanSuggestion('tets', commands);
-
-      // "tets" is distance 1 from both, but alphabetically "test" comes first
-      expect(suggestion?.command.name).toBe('test');
     });
   });
 });

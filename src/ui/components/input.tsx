@@ -14,12 +14,14 @@ import { getRegistry } from '../../commands/index.js';
 interface InputPromptProps {
   onSubmit: (value: string) => void;
   isActive?: boolean;
+  onPaletteVisibilityChange?: (visible: boolean) => void;
 }
 
-export function InputPrompt({ onSubmit, isActive = true }: InputPromptProps) {
+export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChange }: InputPromptProps) {
   const [value, setValue] = useState('');
   const [pasteState, setPasteState] = useState<PasteState>({ isPasting: false, buffer: '' });
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const [paletteDismissed, setPaletteDismissed] = useState(false);
   const { stdin } = useStdin();
 
   // Get available commands for suggestions
@@ -35,12 +37,19 @@ export function InputPrompt({ onSubmit, isActive = true }: InputPromptProps) {
     return getCommandSuggestions(value, commands);
   }, [value, commands, pasteState.isPasting, isActive]);
 
-  const showPalette = suggestions.length > 0 && value.startsWith('/');
+  // Only show palette while editing the command token (before first space)
+  const isEditingCommand = value.startsWith('/') && !value.includes(' ');
+  const showPalette = isEditingCommand && suggestions.length > 0 && !paletteDismissed;
 
   // Reset selection when suggestions change
   useEffect(() => {
     setSelectedSuggestionIndex(0);
   }, [suggestions.length]);
+
+  // Notify parent when palette visibility changes
+  useEffect(() => {
+    onPaletteVisibilityChange?.(showPalette);
+  }, [showPalette, onPaletteVisibilityChange]);
 
   // Enable bracketed paste mode when component mounts
   useEffect(() => {
@@ -108,15 +117,14 @@ export function InputPrompt({ onSubmit, isActive = true }: InputPromptProps) {
           const args = parts.slice(1).join(' ');
           // Replace command portion with selected, preserve args
           setValue(`/${commandName}${args ? ' ' + args : ' '}`);
+          setPaletteDismissed(false); // Palette will auto-hide due to space
         }
         return;
       }
 
       // Escape: close palette
       if (key.escape) {
-        // Just hide suggestions by clearing value to non-slash
-        // Actually, keep value but user can backspace
-        // Or just do nothing and let them backspace
+        setPaletteDismissed(true);
         setSelectedSuggestionIndex(0);
         return;
       }
@@ -128,13 +136,16 @@ export function InputPrompt({ onSubmit, isActive = true }: InputPromptProps) {
         onSubmit(value.trim());
         setValue('');
         setSelectedSuggestionIndex(0);
+        setPaletteDismissed(false); // Reset for next command
       }
     } else if (key.backspace || key.delete) {
       setValue(prev => prev.slice(0, -1));
+      setPaletteDismissed(false); // Re-show palette on editing
     } else if (!key.ctrl && !key.meta && input && !key.tab) {
       // Filter out escape sequences that might slip through
       if (!input.startsWith('\x1b')) {
         setValue(prev => prev + input);
+        setPaletteDismissed(false); // Re-show palette on typing
       }
     }
   }, { isActive });

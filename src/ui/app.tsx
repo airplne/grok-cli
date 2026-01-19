@@ -63,6 +63,9 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
   const [selectedToolIndex, setSelectedToolIndex] = useState<number | null>(null);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
 
+  // Command palette state (to prevent arrow key conflicts)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
   // Create agent with current model (only if we have API key)
   const agentRef = useRef<GrokAgent | null>(null);
 
@@ -436,7 +439,8 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
     // Tool output navigation:
     // - Enter navigation with ↑/↓ (does not interfere with typing)
     // - When a tool is selected: j/k or ↑/↓ to navigate, e to expand/collapse, Esc to return to input
-    if (state === 'idle' && completedTools.length > 0) {
+    // - Do NOT activate if command palette is open (palette gets arrow priority)
+    if (state === 'idle' && completedTools.length > 0 && !isCommandPaletteOpen) {
       const inputLower = input.toLowerCase();
       const isNavigatingTools = selectedToolIndex !== null;
 
@@ -610,7 +614,11 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
 
       {/* Input prompt */}
       {state === 'idle' && (
-        <InputPrompt onSubmit={handleSubmit} isActive={selectedToolIndex === null} />
+        <InputPrompt
+          onSubmit={handleSubmit}
+          isActive={selectedToolIndex === null}
+          onPaletteVisibilityChange={setIsCommandPaletteOpen}
+        />
       )}
     </Box>
   );

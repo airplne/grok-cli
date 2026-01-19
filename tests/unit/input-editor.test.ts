@@ -261,7 +261,8 @@ describe('input editor', () => {
       const state: EditorState = { value: 'line1\nline2\nline3', cursorIndex: 8 };
       const display = getDisplayWithCursor(state);
 
-      expect(display.display).toContain('cursor on line 2');
+      expect(display.display).toContain('(line 2)');
+      expect(display.display).toContain('li|ne2');
       expect(display.isMultiLine).toBe(true);
     });
 
@@ -269,7 +270,8 @@ describe('input editor', () => {
       const state: EditorState = { value: 'a\nb\nc', cursorIndex: 5 };
       const display = getDisplayWithCursor(state);
 
-      expect(display.display).toContain('cursor on line 3');
+      expect(display.display).toContain('(line 3)');
+      expect(display.display).toContain('c|');
     });
   });
 

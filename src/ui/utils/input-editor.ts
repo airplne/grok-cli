@@ -208,23 +208,37 @@ export function getDisplayWithCursor(state: EditorState): {
     };
   }
 
-  // Multi-line: show first line with "..." and line count
-  // For cursor, we need to determine which line the cursor is on
-  let charCount = 0;
+  // Multi-line: show a compact preview that always includes a visible cursor marker.
+  // We display:
+  // - first line + line count
+  // - the current cursor line (with cursor inserted) if cursor is not on line 1
+  let lineStartIndex = 0;
   let cursorLine = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const lineLength = lines[i].length + 1; // +1 for \n
-    if (charCount + lineLength > cursorIndex) {
+    const lineEndIndex = lineStartIndex + lines[i].length;
+
+    if (cursorIndex <= lineEndIndex) {
       cursorLine = i;
       break;
     }
-    charCount += lineLength;
+
+    // Skip newline character between lines
+    lineStartIndex = lineEndIndex + 1;
   }
 
-  const display = cursorLine === 0
-    ? renderWithCursor(lines[0], cursorIndex) + `... [${lines.length} lines]`
-    : `${lines[0]}... [${lines.length} lines, cursor on line ${cursorLine + 1}]`;
+  const cursorColumnIndex = Math.max(
+    0,
+    Math.min(lines[cursorLine].length, cursorIndex - lineStartIndex)
+  );
+
+  const summary = `${lines[0]}... [${lines.length} lines]`;
+  const cursorLineDisplay = renderWithCursor(lines[cursorLine], cursorColumnIndex);
+
+  const display =
+    cursorLine === 0
+      ? `${cursorLineDisplay}... [${lines.length} lines]`
+      : `${summary}\n(line ${cursorLine + 1}) ${cursorLineDisplay}`;
 
   return {
     display,

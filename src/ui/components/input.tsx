@@ -141,18 +141,30 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
       }
     }
 
-    // Cursor movement (left/right arrows)
-    // Only when palette is NOT visible (palette uses arrows for navigation)
-    if (!showPalette) {
-      if (key.leftArrow) {
-        setEditorState(prev => moveCursor(prev, 'left'));
-        return;
-      }
+    // Cursor movement (left/right arrows, Home/End).
+    // Palette uses ↑/↓; left/right and Home/End are safe to use even when palette is visible.
+    // Home/End support varies by terminal; handle both Ink keys and common escape sequences.
+    const isHome = (key as any).home || input === '\x1b[H' || input === '\x1bOH' || input === '\x1b[1~';
+    const isEnd = (key as any).end || input === '\x1b[F' || input === '\x1bOF' || input === '\x1b[4~';
 
-      if (key.rightArrow) {
-        setEditorState(prev => moveCursor(prev, 'right'));
-        return;
-      }
+    if (isHome) {
+      setEditorState(prev => moveCursorToBoundary(prev, 'start'));
+      return;
+    }
+
+    if (isEnd) {
+      setEditorState(prev => moveCursorToBoundary(prev, 'end'));
+      return;
+    }
+
+    if (key.leftArrow || input === '\x1b[D' || input === '\x1bOD') {
+      setEditorState(prev => moveCursor(prev, 'left'));
+      return;
+    }
+
+    if (key.rightArrow || input === '\x1b[C' || input === '\x1bOC') {
+      setEditorState(prev => moveCursor(prev, 'right'));
+      return;
     }
 
     // Regular input handling

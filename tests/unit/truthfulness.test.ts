@@ -507,6 +507,46 @@ Some subagent text without a proper header.
       expect(/subagent evidence shows "Subagents spawned: 0"/.test(note)).toBe(true);
     });
   });
+
+  describe('Explore Subagent Prompt Quality', () => {
+    it('should include token-based search guidance', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      // Must instruct to use token/identifier searches, not phrase searches
+      expect(definition.systemPrompt).toContain('token');
+      expect(definition.systemPrompt).toContain('identifier');
+      expect(definition.systemPrompt).toMatch(/taskSuccesses|call\.tool/);
+    });
+
+    it('should include file:line evidence requirements', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toContain('file:line');
+      expect(definition.systemPrompt).toMatch(/exact.*line|line.*number/i);
+    });
+
+    it('should prefer src/** over tests/**', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toContain('Prefer');
+      expect(definition.systemPrompt).toContain('src/**');
+      expect(definition.systemPrompt).toContain('tests/**');
+    });
+
+    it('should include follow-up strategy for function findings', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toMatch(/follow-up|second Grep/i);
+      expect(definition.systemPrompt).toContain('same file');
+    });
+
+    it('should have quality checklist', async () => {
+      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+      expect(definition.systemPrompt).toMatch(/checklist|verify/i);
+      expect(definition.systemPrompt).toContain('exact matching code');
+    });
+  });
 });
 
 /**

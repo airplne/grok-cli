@@ -20,6 +20,7 @@ import {
 import { getCommandSuggestions } from '../utils/command-suggestions.js';
 import { CommandPalette } from './command-palette.js';
 import { getRegistry } from '../../commands/index.js';
+import { containsPasteMarkers } from '../../commands/utils.js';
 
 interface InputPromptProps {
   onSubmit: (value: string) => void;
@@ -182,8 +183,9 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
       setEditorState(prev => deleteForward(prev));
       setPaletteDismissed(false);
     } else if (!key.ctrl && !key.meta && input && !key.tab) {
-      // Filter out escape sequences that might slip through
-      if (!input.startsWith('\x1b')) {
+      // Filter out escape sequences and bracketed paste markers
+      // Some terminals split ESC from the sequence, so check for both forms
+      if (!input.startsWith('\x1b') && !containsPasteMarkers(input)) {
         setEditorState(prev => insertAtCursor(prev, input));
         setPaletteDismissed(false);
       }

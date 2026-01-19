@@ -10,6 +10,7 @@
 import path from 'path';
 import type { Command, ParsedCommand, CommandContext, CommandResult } from '../types.js';
 import { validateAndOpen } from '../../security/path-validator.js';
+import { sanitizeControlSequences } from '../utils.js';
 
 // Maximum file size for prompt files: 256KB
 const MAX_PROMPT_SIZE = 262144;
@@ -34,9 +35,9 @@ export const promptCommand: Command = {
   aliases: ['promptfile', 'pf', 'loadprompt'],
 
   async execute(parsed: ParsedCommand, context: CommandContext): Promise<CommandResult> {
-    const filePath = parsed.args[0];
+    const filePathRaw = parsed.args[0];
 
-    if (!filePath) {
+    if (!filePathRaw) {
       return {
         success: false,
         error: 'Missing file path. Usage: /prompt <file_path>\n\n' +
@@ -45,6 +46,10 @@ export const promptCommand: Command = {
                '  /prompt prompts/test-scenario.md',
       };
     }
+
+    // Belt-and-suspenders: sanitize control sequences from file path
+    // Parser already sanitizes, but this ensures no leakage at handler level
+    const filePath = sanitizeControlSequences(filePathRaw).trim();
 
     // Resolve path relative to cwd
     const resolvedPath = path.isAbsolute(filePath)

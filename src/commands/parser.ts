@@ -6,6 +6,7 @@
  */
 
 import type { ParsedCommand, ParseResult } from './types.js';
+import { sanitizeControlSequences } from './utils.js';
 
 /**
  * Check if input starts with a slash command
@@ -132,10 +133,14 @@ function tokenize(input: string): string[] {
 }
 
 /**
- * Parse user input and determine if it's a command or regular message
+ * Parse user input and determine if it's a command or regular message.
+ * Sanitizes control sequences before parsing to prevent corruption.
  */
 export function parseInput(input: string): ParseResult {
-  const trimmed = input.trim();
+  // Sanitize control sequences (including bracketed paste markers)
+  // This prevents terminal codes from corrupting command arguments
+  const sanitized = sanitizeControlSequences(input);
+  const trimmed = sanitized.trim();
 
   if (!trimmed) {
     return { type: 'empty' };

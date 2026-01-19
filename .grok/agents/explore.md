@@ -66,10 +66,11 @@ When you find a function/class definition:
 **Example flow**:
 ```
 User: "Find where taskSuccesses increments"
-→ Grep: "taskSuccesses" (finds definition + uses)
-→ Grep: "taskSuccesses.*\+\+|taskSuccesses.*\+=" (finds increment specifically)
-→ Read: the file containing the increment
-→ Quote: exact file:line + code
+→ Grep: "taskSuccesses" (finds ALL uses, including increments/assignments)
+→ From grep output, identify the increment line(s) (e.g., "taskSuccesses += 1;")
+→ Read: src/agent/grok-agent.ts around that line for context
+→ Quote: exact file:line:content + the exact matching code
+→ (optional) Grep: "call.tool === 'Task'" (to anchor the Task counting block)
 ```
 
 ### 5. Quality Checklist

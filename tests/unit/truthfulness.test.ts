@@ -563,14 +563,21 @@ Some subagent text without a proper header.
       expect(definition.systemPrompt).toContain('misses whitespace');
     });
 
-    it('should warn against regex alternation and word boundaries', async () => {
-      const definition = await loadSubagentDefinition('explore', process.cwd());
+	    it('should warn against regex alternation and word boundaries', async () => {
+	      const definition = await loadSubagentDefinition('explore', process.cwd());
+	
+	      expect(definition.systemPrompt).toContain('DO NOT use regex alternation');
+	      expect(definition.systemPrompt).toMatch(/\\b|\\s|fragile/);
+	    });
 
-      expect(definition.systemPrompt).toContain('DO NOT use regex alternation');
-      expect(definition.systemPrompt).toMatch(/\\b|\\s|fragile/);
-    });
-  });
-});
+	    it('should not recommend fragile operator-regex searches for increments', async () => {
+	      const definition = await loadSubagentDefinition('explore', process.cwd());
+
+	      // This was previously shown as a recommended follow-up and is intentionally banned.
+	      expect(definition.systemPrompt).not.toContain('taskSuccesses.*\\+\\+|taskSuccesses.*\\+=');
+	    });
+	  });
+	});
 
 /**
  * Helper function to validate model output for truthfulness.

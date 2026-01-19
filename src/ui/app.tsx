@@ -11,6 +11,7 @@ import { TodoDisplay } from './components/todo-display.js';
 import { TodoTool } from '../tools/todo.js';
 import { getRegistry, isCommand, CommandContext, HistoryMessage, CommandResult } from '../commands/index.js';
 import { getDefaultModel, resolveModelId } from '../config/models.js';
+import { shouldAutoApprove, ConfirmDecision } from './utils/confirm-decision.js';
 
 interface AppProps {
   initialPrompt?: string;
@@ -40,6 +41,7 @@ interface PendingConfirmation {
   toolName: string;
   args: Record<string, unknown>;
   resolve: (approved: boolean) => void;
+  setAutoAccept?: (enabled: boolean) => void;
 }
 
 // Generate stable IDs
@@ -65,6 +67,9 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
 
   // Command palette state (to prevent arrow key conflicts)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Auto-accept edits state (session-only, resets on exit)
+  const [autoAcceptEdits, setAutoAcceptEdits] = useState(false);
 
   // Create agent with current model (only if we have API key)
   const agentRef = useRef<GrokAgent | null>(null);
@@ -113,11 +118,21 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
 
   // Handle confirmation dialog
   const handleConfirmation = useCallback((toolName: string, args: Record<string, unknown>): Promise<boolean> => {
+    // Check if auto-accept is enabled for this tool
+    if (shouldAutoApprove(toolName, autoAcceptEdits)) {
+      return Promise.resolve(true); // Auto-approve without showing dialog
+    }
+
     return new Promise((resolve) => {
-      setPendingConfirm({ toolName, args, resolve });
+      setPendingConfirm({
+        toolName,
+        args,
+        resolve,
+        setAutoAccept: setAutoAcceptEdits,
+      });
       setState('confirming');
     });
-  }, []);
+  }, [autoAcceptEdits]);
 
   // Create command context
   const createCommandContext = useCallback((): CommandContext => ({
@@ -187,6 +202,9 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
         case 'submit_prompt':
           // Return the prompt content to be submitted
           return { handled: true, submitPrompt: commandResult.action.content };
+        case 'set_auto_edit':
+          setAutoAcceptEdits(commandResult.action.enabled);
+          break;
       }
     }
 
@@ -409,9 +427,18 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
   }, [exit, executeCommand, runAgent, offlineMode]);
 
   // Handle confirmation response
-  const handleConfirmResponse = useCallback((approved: boolean) => {
+  const handleConfirmResponse = useCallback((decision: ConfirmDecision) => {
     if (pendingConfirm) {
-      pendingConfirm.resolve(approved);
+      // Handle decision
+      if (decision === 'auto_accept_edits') {
+        pendingConfirm.setAutoAccept?.(true);
+        pendingConfirm.resolve(true); // Also approve this request
+      } else if (decision === 'allow_once') {
+        pendingConfirm.resolve(true);
+      } else {
+        pendingConfirm.resolve(false);
+      }
+
       setPendingConfirm(null);
       setState('running');
     }
@@ -526,6 +553,7 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
         <Text color="gray"> - Claude Code for xAI Grok</Text>
         <Text color="gray"> [{currentModel}]</Text>
         {offlineMode && <Text color="yellow" bold> [OFFLINE]</Text>}
+        {autoAcceptEdits && <Text color="green" bold> [AUTO-EDIT: ON]</Text>}
       </Box>
 
       {/* Offline Mode Banner */}
@@ -606,6 +634,7 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
           toolName={pendingConfirm.toolName}
           args={pendingConfirm.args}
           onResponse={handleConfirmResponse}
+          autoAcceptEdits={autoAcceptEdits}
         />
       )}
 

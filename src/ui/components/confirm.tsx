@@ -17,18 +17,54 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const options = getConfirmOptions(toolName);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [debugMode, setDebugMode] = useState(false);
+  const [lastKeyEvent, setLastKeyEvent] = useState<{ input: string; flags: string } | null>(null);
 
   useInput((input, key) => {
+    // Debug mode: capture key events for diagnostics
+    if (debugMode) {
+      const flags = [
+        key.tab ? 'tab' : null,
+        (key as any).shift ? 'shift' : null,
+        key.return ? 'return' : null,
+        key.escape ? 'escape' : null,
+        key.upArrow ? 'up' : null,
+        key.downArrow ? 'down' : null,
+      ].filter(Boolean).join(',') || 'none';
+
+      const escaped = input
+        .split('')
+        .map(c => {
+          const code = c.charCodeAt(0);
+          if (code < 32 || code === 127) {
+            return `\\x${code.toString(16).padStart(2, '0')}`;
+          }
+          return c;
+        })
+        .join('');
+
+      setLastKeyEvent({ input: escaped || '(empty)', flags });
+    }
+
+    // Toggle debug mode with '?' key
+    if (input === '?') {
+      setDebugMode(prev => !prev);
+      return;
+    }
+
     // Shift+Tab handling varies across terminals:
     // - Some send ESC [ Z
     // - Some send ESC [ 1 ; 2 Z
     // - Some terminals split ESC, leaving "[Z" / "[1;2Z"
     // - Some set key.tab + key.shift
+    // - SS3 variant: ESC O Z (may arrive as 'OZ' after Ink strips ESC)
     const isShiftTab =
       input === '\x1b[Z' ||
       input === '\x1b[1;2Z' ||
       input === '[Z' ||
       input === '[1;2Z' ||
+      input === 'OZ' || // SS3 fallback (ESC O Z with ESC stripped)
+      input === '\x1bOZ' || // SS3 with ESC
       (key.tab && (key as any).shift);
 
     if (isShiftTab) {
@@ -38,6 +74,17 @@ export function ConfirmDialog({
 
     // Tab: cycle forward
     if (key.tab || input === '\t') {
+      setSelectedIndex(prev => (prev + 1) % options.length);
+      return;
+    }
+
+    // Arrow keys: alternative navigation
+    if (key.upArrow) {
+      setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
+      return;
+    }
+
+    if (key.downArrow) {
       setSelectedIndex(prev => (prev + 1) % options.length);
       return;
     }
@@ -105,9 +152,19 @@ export function ConfirmDialog({
       {/* Help hint */}
       <Box marginTop={1}>
         <Text color="gray" dimColor>
-          Tab/Shift+Tab: navigate • Enter/letter: select • Esc: deny
+          Tab/Shift+Tab/↑/↓: navigate • Enter/letter: select • Esc: deny
+          {!debugMode && ' • ?: debug'}
         </Text>
       </Box>
+
+      {/* Debug overlay */}
+      {debugMode && lastKeyEvent && (
+        <Box marginTop={1} borderStyle="single" borderColor="magenta" paddingX={1}>
+          <Text color="magenta" dimColor>
+            DEBUG: input="{lastKeyEvent.input}" flags=[{lastKeyEvent.flags}]
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }

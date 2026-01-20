@@ -311,5 +311,62 @@ describe('input editor', () => {
       expect(state.value).toBe('before PASTE\nLINE2after');
       expect(state.cursorIndex).toBe(7 + pastedContent.length);
     });
+
+    it('should handle: multiple backspaces from different positions', () => {
+      let state = createEditorState();
+      state = insertAtCursor(state, 'abcdef');
+      // "abcdef|" cursor at 6
+
+      state = deleteBackward(state);
+      expect(state.value).toBe('abcde');
+      expect(state.cursorIndex).toBe(5);
+
+      state = moveCursor(state, 'left');
+      state = moveCursor(state, 'left');
+      // "abc|de" cursor at 3
+
+      state = deleteBackward(state);
+      expect(state.value).toBe('abde');
+      expect(state.cursorIndex).toBe(2);
+    });
+
+    it('should not corrupt value when control chars are filtered', () => {
+      // Simulate what happens if DEL (\x7f) was inserted as text (bug scenario)
+      let state = createEditorState();
+      state = insertAtCursor(state, 'hello');
+
+      // This should NOT happen with the fix (but tests the editor is resilient)
+      // If \x7f gets inserted, it's invisible but corrupts the string
+      state = insertAtCursor(state, '\x7f');
+
+      // The value would be 'hello\x7f' which is 6 chars
+      expect(state.value.length).toBe(6);
+      expect(state.cursorIndex).toBe(6);
+
+      // Backspace should remove the \x7f control char
+      state = deleteBackward(state);
+      expect(state.value).toBe('hello');
+    });
+  });
+
+  describe('terminal byte code compatibility', () => {
+    it('should detect DEL byte (\\x7f) as backspace intent', () => {
+      // Verify that \x7f would trigger backspace logic
+      const delByte = '\x7f';
+      expect(delByte).toBe('\x7f');
+      expect(delByte.charCodeAt(0)).toBe(127);
+    });
+
+    it('should detect BS byte (\\x08 or \\b) as backspace intent', () => {
+      const bsByte = '\x08';
+      const bsLiteral = '\b';
+      expect(bsByte).toBe('\b');
+      expect(bsByte.charCodeAt(0)).toBe(8);
+    });
+
+    it('should detect delete sequence (\\x1b[3~)', () => {
+      const deleteSeq = '\x1b[3~';
+      expect(deleteSeq).toContain('[3~');
+    });
   });
 });

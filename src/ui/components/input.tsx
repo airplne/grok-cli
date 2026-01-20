@@ -176,16 +176,48 @@ export function InputPrompt({ onSubmit, isActive = true, onPaletteVisibilityChan
         setSelectedSuggestionIndex(0);
         setPaletteDismissed(false);
       }
-    } else if (key.backspace) {
+      return;
+    }
+
+    // Backspace: detect both Ink flag and common byte codes
+    // Pop!_OS/tmux may send \x7f (DEL) or \b (BS) without setting key.backspace
+    const isBackspace =
+      key.backspace ||
+      input === '\x7f' ||  // DEL (most common)
+      input === '\b' ||    // BS
+      input === '\x08';    // Control-H
+
+    if (isBackspace) {
       setEditorState(prev => deleteBackward(prev));
       setPaletteDismissed(false);
-    } else if (key.delete) {
+      return;
+    }
+
+    // Delete: detect both Ink flag and terminal sequences
+    const isDelete =
+      key.delete ||
+      input === '\x1b[3~' ||  // Standard delete sequence
+      input === '[3~';         // ESC-stripped variant
+
+    if (isDelete) {
       setEditorState(prev => deleteForward(prev));
       setPaletteDismissed(false);
-    } else if (!key.ctrl && !key.meta && input && !key.tab) {
-      // Filter out escape sequences and bracketed paste markers
-      // Some terminals split ESC from the sequence, so check for both forms
-      if (!input.startsWith('\x1b') && !containsPasteMarkers(input)) {
+      return;
+    }
+
+    // Text insertion: only for printable characters
+    // Explicitly exclude control characters that might slip through
+    if (!key.ctrl && !key.meta && input && !key.tab) {
+      // Filter out:
+      // - Escape sequences
+      // - Bracketed paste markers
+      // - Control characters (< 0x20, except tab which is already filtered)
+      const hasControlChars = input.split('').some(c => {
+        const code = c.charCodeAt(0);
+        return code < 32 && code !== 9; // Allow tab (9) but block other control chars
+      });
+
+      if (!input.startsWith('\x1b') && !containsPasteMarkers(input) && !hasControlChars) {
         setEditorState(prev => insertAtCursor(prev, input));
         setPaletteDismissed(false);
       }

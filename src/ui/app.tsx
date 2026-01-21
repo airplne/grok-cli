@@ -483,7 +483,7 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
           return;
         }
 
-        return;
+        // Don't return here - let other keys pass through to InputPrompt
       }
 
       // Navigate down: j or down arrow

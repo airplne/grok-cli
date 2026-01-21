@@ -645,7 +645,7 @@ export function App({ initialPrompt, model: initialModel, apiKey, offlineMode = 
       {state === 'idle' && (
         <InputPrompt
           onSubmit={handleSubmit}
-          isActive={selectedToolIndex === null}
+          isActive={true}
           onPaletteVisibilityChange={setIsCommandPaletteOpen}
         />
       )}

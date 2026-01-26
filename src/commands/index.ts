@@ -7,6 +7,7 @@
 
 import type { Command, ParsedCommand, CommandContext, CommandResult } from './types.js';
 import { parseInput, isCommand, parseCommand } from './parser.js';
+import { getDidYouMeanSuggestions } from '../ui/utils/command-suggestions.js';
 
 // Import command handlers
 import { helpCommand } from './handlers/help.js';
@@ -16,6 +17,7 @@ import { exitCommand } from './handlers/exit.js';
 import { historyCommand } from './handlers/history.js';
 import { authCommand } from './handlers/auth-tui.js';
 import { promptCommand } from './handlers/prompt.js';
+import { autoEditCommand } from './handlers/auto-edit.js';
 
 /**
  * Command Registry class
@@ -78,9 +80,26 @@ class CommandRegistry {
     const command = this.getCommand(parsed.name);
 
     if (!command) {
+      // Try to provide "did you mean" suggestions (top 3)
+      const suggestions = getDidYouMeanSuggestions(parsed.name, this.getAllCommands(), 3);
+
+      let errorMessage = `Unknown command: /${parsed.name}`;
+
+      if (suggestions.length > 0) {
+        errorMessage += '\n\nDid you mean:';
+        for (const suggestion of suggestions) {
+          const suggestedName = suggestion.matchedAlias
+            ? `${suggestion.command.name} (alias: ${suggestion.matchedAlias})`
+            : suggestion.command.name;
+          errorMessage += `\n  /${suggestedName}`;
+        }
+      }
+
+      errorMessage += '\n\nUse /help to see all available commands.';
+
       return {
         success: false,
-        error: `Unknown command: /${parsed.name}\n\nUse /help to see available commands.`,
+        error: errorMessage,
       };
     }
 
@@ -135,6 +154,7 @@ export function getRegistry(): CommandRegistry {
     registryInstance.register(historyCommand);
     registryInstance.register(authCommand);
     registryInstance.register(promptCommand);
+    registryInstance.register(autoEditCommand);
   }
 
   return registryInstance;
@@ -159,3 +179,4 @@ export { exitCommand } from './handlers/exit.js';
 export { historyCommand } from './handlers/history.js';
 export { authCommand } from './handlers/auth-tui.js';
 export { promptCommand } from './handlers/prompt.js';
+export { autoEditCommand } from './handlers/auto-edit.js';

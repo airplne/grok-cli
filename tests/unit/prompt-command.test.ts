@@ -293,6 +293,29 @@ describe('/prompt command', () => {
         await fs.rm(tempDir, { recursive: true, force: true });
       }
     });
+
+    it('should handle file path with bracketed paste markers (regression)', async () => {
+      const testCwd = process.cwd();
+      const tempDir = path.join(testCwd, '.tmp-prompt-test-' + Date.now());
+      await fs.mkdir(tempDir, { recursive: true });
+
+      try {
+        const promptFile = path.join(tempDir, 'test-file.txt');
+        await fs.writeFile(promptFile, 'test content', 'utf8');
+
+        // Simulate what happens if paste markers leak into args
+        // Parser should sanitize, but handler also has belt-and-suspenders
+        const corruptedPath = promptFile + '[200~';
+        const parsed = createParsedCommand([corruptedPath]);
+        const result = await promptCommand.execute(parsed, createContext(testCwd));
+
+        // Should succeed because handler sanitizes the path
+        expect(result.success).toBe(true);
+        expect(result.action?.type).toBe('submit_prompt');
+      } finally {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('command metadata', () => {

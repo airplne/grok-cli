@@ -30,6 +30,7 @@ export type CommandAction =
   | { type: 'clear' }
   | { type: 'set_model'; model: string }
   | { type: 'submit_prompt'; content: string }
+  | { type: 'set_auto_edit'; enabled: boolean }
   | { type: 'none' };
 
 /**
